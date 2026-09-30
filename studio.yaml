@@ -1,0 +1,11 @@
+# Cashu-XX studio root (media generation via the video-studio MCP family).
+spec_version: "1.0"
+name: "Cashu-XX Studio"
+
+defaults:
+  fps: 30
+  timebase: seconds
+
+tools:
+  image: "fal:flux-dev"
+  music: "fal:stable-audio-25"

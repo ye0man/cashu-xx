@@ -200,13 +200,24 @@ re-displays QRs on demand — redemption UI as game content.
 
 ## 10. Art & audio pipeline (tools/)
 
-- `tools/palette-qa.ts` — checks every sprite frame against the 16-color palette;
-  fails with a report of offending pixels/frames.
-- `tools/sheet-assemble.ts` — downscales generated art (nearest-neighbor),
-  quantizes to palette, assembles walk sheets from per-direction frames
-  (side mirrored for left).
-- Audio: loop metadata (loop start/end) lives in `assets/manifest.json`; Phaser's
-  sound manager reads it. Tracks are generated externally and committed as assets.
+Generation runs through the video-studio MCP family (`studio.yaml` marks this repo as a
+studio root; keys live in the gitignored `.env`). Raw generations land in `assets/gen/`
+with full provenance in `assets/manifest.json` (prompts, seeds, costs, licenses).
+
+- `tools/src/image.ts` — PNG load/crop/downscale/palette-snap/compose helpers (pngjs).
+- `tools/src/sheet-assemble.ts` — CLI: `player <down> <up> <side> <out>` (6-frame sheet
+  with 1px bob row), `npc <in> <out>` (16×24), `tile/prop <in> <out>` (16×16). Each run
+  crops to aspect, nearest-neighbor downscales, and snaps to the 16-color palette.
+- `tools/src/palette-qa.ts` — CLI: reports on-palette ratio per PNG, exits 1 below
+  tolerance (`PALETTE_TOLERANCE`, default 10% off). All shipped assets pass at 100%.
+- Pipeline: fal (JPEG bytes) → ffmpeg → `assets/work/*.png` → sheet-assemble →
+  `client/public/assets/{sprites,tiles}/` → palette-qa.
+- Audio: Stable Audio 2.5 chiptune prompts (30s loops) + 2 generated jingles → ffmpeg
+  transcode to mp3; Freesound CC0 for menu/door SFX. All in `client/public/assets/audio/`.
+- Night mode is a multiply-blend overlay (`systems/lighting.ts`) rather than second
+  tileset variants; `N` toggles it on outdoor maps, hideout is always night.
+- `BootScene` preloads everything and falls back to generated placeholder textures
+  per missing key, so the game stays playable without any assets.
 
 ## 11. Dev workflow
 

@@ -1,73 +1,108 @@
 import * as Phaser from 'phaser';
+import { audio } from '../systems/audio';
+
+const IMAGE_ASSETS: Record<string, string> = {
+  'tile-floor': 'assets/tiles/tile-floor.png',
+  'tile-wall': 'assets/tiles/tile-wall.png',
+  'tile-water': 'assets/tiles/tile-water.png',
+  'tile-door': 'assets/tiles/tile-door.png',
+  sign: 'assets/tiles/sign.png',
+  pickup: 'assets/tiles/pickup.png',
+  'npc-hickory': 'assets/sprites/hickory.png',
+  'npc-rusty': 'assets/sprites/rusty.png',
+  'npc-coco': 'assets/sprites/coco.png',
+  'npc-pip': 'assets/sprites/pip.png',
+  'npc-djmac': 'assets/sprites/djmac.png',
+  'npc-kimi': 'assets/sprites/kimi.png',
+  'npc-receptionist': 'assets/sprites/receptionist.png',
+  'npc-civ-a': 'assets/sprites/civ-doner.png',
+  'npc-civ-b': 'assets/sprites/civ-commuter.png',
+};
+
+const AUDIO_ASSETS: Record<string, string> = {
+  'music-title': 'assets/audio/title.mp3',
+  'music-overworld': 'assets/audio/overworld.mp3',
+  'music-night': 'assets/audio/night.mp3',
+  'music-lab': 'assets/audio/lab.mp3',
+  'music-hq': 'assets/audio/hq.mp3',
+  'music-club': 'assets/audio/club.mp3',
+  'music-hideout': 'assets/audio/hideout.mp3',
+  'music-ceremony': 'assets/audio/ceremony.mp3',
+  'sfx-text': 'assets/audio/sfx-text.mp3',
+  'sfx-menu': 'assets/audio/sfx-menu.mp3',
+  'sfx-door': 'assets/audio/sfx-door.mp3',
+  'sfx-item': 'assets/audio/sfx-item.mp3',
+  'sfx-token': 'assets/audio/sfx-token.mp3',
+};
 
 export class BootScene extends Phaser.Scene {
+  private readonly failed = new Set<string>();
+
   constructor() {
     super({ key: 'BootScene' });
   }
 
+  preload(): void {
+    this.load.on('loaderror', (file: Phaser.Loader.File) => {
+      this.failed.add(file.key);
+    });
+    this.load.spritesheet('player', 'assets/sprites/player.png', {
+      frameWidth: 16,
+      frameHeight: 24,
+    });
+    for (const [key, url] of Object.entries(IMAGE_ASSETS)) {
+      this.load.image(key, url);
+    }
+    for (const [key, url] of Object.entries(AUDIO_ASSETS)) {
+      this.load.audio(key, url);
+    }
+  }
+
   create(): void {
-    this.makeTextures();
+    audio.init(this.sound);
+    this.makeFallbacks();
+    audio.playTheme('title');
     this.scene.start('TitleScene');
   }
 
-  private makeTextures(): void {
-    const floor = this.add.graphics();
-    floor.fillStyle(0x2d1b4e, 1);
-    floor.fillRect(0, 0, 16, 16);
-    floor.fillStyle(0x261640, 1);
-    floor.fillRect(0, 0, 8, 8);
-    floor.fillRect(8, 8, 8, 8);
-    floor.generateTexture('tile-floor', 16, 16);
-    floor.destroy();
+  private makeFallbacks(): void {
+    for (const key of this.failed) {
+      if (key === 'player') {
+        this.makePlaceholderPlayer();
+      } else if (key.startsWith('npc-')) {
+        this.makeNpc(key, 0xe8c9a0, 0x7b2fbe);
+      } else if (!key.startsWith('music-') && !key.startsWith('sfx-')) {
+        this.makeTileFallback(key);
+      }
+    }
+  }
 
-    const wall = this.add.graphics();
-    wall.fillStyle(0x120a24, 1);
-    wall.fillRect(0, 0, 16, 16);
-    wall.fillStyle(0x1e1036, 1);
-    wall.fillRect(0, 0, 16, 3);
-    wall.generateTexture('tile-wall', 16, 16);
-    wall.destroy();
+  private makePlaceholderPlayer(): void {
+    const gfx = this.add.graphics();
+    gfx.fillStyle(0xe8c9a0, 1);
+    gfx.fillRect(2, 6, 12, 16);
+    gfx.fillStyle(0x7b2fbe, 1);
+    gfx.fillRect(2, 2, 12, 6);
+    gfx.fillStyle(0x000000, 1);
+    gfx.fillRect(2, 12, 12, 3);
+    gfx.generateTexture('player', 16, 24);
+    gfx.destroy();
+  }
 
-    const player = this.add.graphics();
-    player.fillStyle(0xe8c9a0, 1);
-    player.fillRect(2, 6, 12, 16);
-    player.fillStyle(0x7b2fbe, 1);
-    player.fillRect(2, 2, 12, 6);
-    player.fillStyle(0x000000, 1);
-    player.fillRect(2, 12, 12, 3);
-    player.generateTexture('player', 16, 24);
-    player.destroy();
-
-    const sign = this.add.graphics();
-    sign.fillStyle(0x8a6a4a, 1);
-    sign.fillRect(7, 8, 2, 8);
-    sign.fillStyle(0xe8c9a0, 1);
-    sign.fillRect(2, 2, 12, 8);
-    sign.fillStyle(0x120a24, 1);
-    sign.fillRect(4, 4, 8, 1);
-    sign.fillRect(4, 7, 6, 1);
-    sign.generateTexture('sign', 16, 16);
-    sign.destroy();
-
-    const pickup = this.add.graphics();
-    pickup.fillStyle(0xf7e7cf, 1);
-    pickup.fillRect(4, 6, 8, 6);
-    pickup.fillStyle(0x7b2fbe, 1);
-    pickup.fillRect(4, 4, 8, 3);
-    pickup.fillStyle(0xe8c9a0, 1);
-    pickup.fillRect(7, 2, 2, 3);
-    pickup.generateTexture('pickup', 16, 16);
-    pickup.destroy();
-
-    this.makeNpc('npc-hickory', 0xe8c9a0, 0xf7e7cf);
-    this.makeNpc('npc-rusty', 0xc4453c, 0x8e2f2a);
-    this.makeNpc('npc-coco', 0x8a6a4a, 0x5a9c4e);
-    this.makeNpc('npc-pip', 0x5a9c4e, 0x2f6b34);
-    this.makeNpc('npc-djmac', 0xe8c9a0, 0x120a24);
-    this.makeNpc('npc-kimi', 0xc4453c, 0x120a24);
-    this.makeNpc('npc-receptionist', 0x7b2fbe, 0xf7e7cf);
-    this.makeNpc('npc-civ-a', 0xc9a87c, 0x8a6a4a);
-    this.makeNpc('npc-civ-b', 0xb0a8bd, 0x6b6478);
+  private makeTileFallback(key: string): void {
+    const colors: Record<string, number> = {
+      'tile-floor': 0x2d1b4e,
+      'tile-wall': 0x1e1036,
+      'tile-water': 0x2c5f8a,
+      'tile-door': 0xc9a87c,
+      sign: 0xe8c9a0,
+      pickup: 0xf7e7cf,
+    };
+    const gfx = this.add.graphics();
+    gfx.fillStyle(colors[key] ?? 0x2d1b4e, 1);
+    gfx.fillRect(0, 0, 16, 16);
+    gfx.generateTexture(key, 16, 16);
+    gfx.destroy();
   }
 
   private makeNpc(key: string, body: number, accent: number): void {

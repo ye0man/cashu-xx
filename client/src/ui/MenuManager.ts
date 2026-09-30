@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import { MILESTONE_IDS, MILESTONE_LABELS } from '@cashu-xx/shared';
 import { SIGN_TOTAL } from '../data/signs';
+import { audio } from '../systems/audio';
 import { getJournal, isMilestoneEarned } from '../systems/quests';
 import { worldState, writeSave } from '../systems/save';
 import type { Direction } from '../systems/movement';
@@ -70,6 +71,7 @@ export class MenuManager {
     this.pageIndex = 0;
     this.savedFlash = false;
     this.container.setVisible(true);
+    audio.playSfx('sfx-menu');
     this.render();
   }
 
@@ -88,11 +90,13 @@ export class MenuManager {
     if (Phaser.Input.Keyboard.JustDown(this.leftKey)) {
       this.pageIndex = (this.pageIndex + PAGES.length - 1) % PAGES.length;
       this.savedFlash = false;
+      audio.playSfx('sfx-menu');
       this.render();
     }
     if (Phaser.Input.Keyboard.JustDown(this.rightKey)) {
       this.pageIndex = (this.pageIndex + 1) % PAGES.length;
       this.savedFlash = false;
+      audio.playSfx('sfx-menu');
       this.render();
     }
     if (this.actionKeys.some((key) => Phaser.Input.Keyboard.JustDown(key)) && PAGES[this.pageIndex] === 'SAVE') {

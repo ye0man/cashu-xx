@@ -11,6 +11,7 @@ import {
 import type { PickupSpot } from '../data/maps';
 import type { DialogManager } from '../ui/DialogManager';
 import type { QRPanel } from '../ui/QRPanel';
+import { audio } from './audio';
 import { runQuestions, runShellRounds, runTraceOrder } from './challenges';
 import { STORY_FLAGS, earnedMilestones, getJournal, hasFlag, hiddenFound, setFlag } from './quests';
 import { showTokenClaim } from './tokens';
@@ -59,6 +60,7 @@ async function runPickup(spot: PickupSpot, ctx: StoryContext): Promise<void> {
   if (spot.id === 'pickup-record') {
     setFlag(STORY_FLAGS.recordFound);
     ctx.showToast('Got the vinyl record');
+    audio.playSfx('sfx-item');
     await ctx.dialog.openAsync({
       lines: ['You found DJ Mac’s record! The B-side smells like espresso. Return it to the club!'],
     });
@@ -148,6 +150,7 @@ async function talkHickory(ctx: StoryContext): Promise<void> {
 
 async function runCeremony(ctx: StoryContext): Promise<void> {
   const dialog = ctx.dialog;
+  audio.playTheme('ceremony');
   await dialog.openAsync({
     speaker: 'PROF. HICKORY',
     lines: [

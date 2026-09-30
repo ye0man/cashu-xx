@@ -1,0 +1,1062 @@
+{
+  "version": "1.0",
+  "assets": [
+    {
+      "id": "ast_0001",
+      "kind": "image",
+      "path": "assets/gen/xx-front.png",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f04/83OWZ5DQ5emtfLqu0zXXo.jpg",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/flux/dev",
+        "prompt": "Game Boy Color era pixel art JRPG sprite: a cute anthropomorphic hazelnut character with black pixel sunglasses, cream shell body, small purple hoodie, standing facing the viewer, centered full body, flat solid dark purple background, thick black outlines, flat colors, crisp pixel edges, no text, no watermark",
+        "seed": 7,
+        "params": {
+          "image_size": "square"
+        }
+      },
+      "specs": {
+        "duration": 0.04,
+        "width": 512,
+        "height": 512,
+        "fps": 25.0,
+        "codec": "mjpeg"
+      },
+      "cost_usd": 0.025,
+      "checksum": "sha256:9540d73b2ad9f2ec49836f29c6e8577e34121e70159bb1d6abeed5770793dcdb",
+      "notes": "XX front view \u2014 pipeline test"
+    },
+    {
+      "id": "ast_0002",
+      "kind": "image",
+      "path": "assets/gen/xx-back.png",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f08/SsXjEs3fHOYDijRKzboTI.jpg",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/flux/dev",
+        "prompt": "Game Boy Color era pixel art JRPG sprite: a cute anthropomorphic hazelnut character seen from behind, back of cream shell head with black sunglasses strap visible on the back, small purple hoodie, short stubby limbs, standing facing away from viewer, centered full body, flat solid dark purple background, thick black outlines, flat colors, limited palette of cream, tan, purple, deep purple and black, crisp pixel edges, no text, no watermark",
+        "seed": 8,
+        "params": {
+          "image_size": "square"
+        }
+      },
+      "specs": {
+        "duration": 0.04,
+        "width": 512,
+        "height": 512,
+        "fps": 25.0,
+        "codec": "mjpeg"
+      },
+      "cost_usd": 0.025,
+      "checksum": "sha256:d60ea6b906c1208b1618973cb8866a6026f707268578122cf8b35d4c88c3bc56",
+      "notes": "XX back view for walk sprite"
+    },
+    {
+      "id": "ast_0003",
+      "kind": "image",
+      "path": "assets/gen/xx-side.png",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f08/YWS2dKtz-r_nCgMnD1lK7.jpg",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/flux/dev",
+        "prompt": "Game Boy Color era pixel art JRPG sprite: a cute anthropomorphic hazelnut character in side profile facing right, cream shell body with black pixel sunglasses seen from the side, small purple hoodie, short stubby limbs, walking pose, centered full body, flat solid dark purple background, thick black outlines, flat colors, limited palette of cream, tan, purple, deep purple and black, crisp pixel edges, no text, no watermark",
+        "seed": 9,
+        "params": {
+          "image_size": "square"
+        }
+      },
+      "specs": {
+        "duration": 0.04,
+        "width": 512,
+        "height": 512,
+        "fps": 25.0,
+        "codec": "mjpeg"
+      },
+      "cost_usd": 0.025,
+      "checksum": "sha256:f475b6d1c786710fe3e3b826c9089acb85bb9c53f3a6df2ddcba1b1ab42d22ba",
+      "notes": "XX side view for walk sprite"
+    },
+    {
+      "id": "ast_0004",
+      "kind": "image",
+      "path": "assets/gen/hickory.png",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f08/9MWSjlTThOnirvubxkmq5.jpg",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/flux/dev",
+        "prompt": "Game Boy Color era pixel art JRPG NPC sprite: an elderly anthropomorphic hickory nut professor with wild white hair, tiny round glasses, bushy eyebrows, cream lab coat over tan shell body, kind smile, standing facing the viewer, centered full body, flat solid dark purple background, thick black outlines, flat colors, limited palette of cream, tan, white, purple, deep purple and black, crisp pixel edges, no text, no watermark",
+        "seed": 10,
+        "params": {
+          "image_size": "square"
+        }
+      },
+      "specs": {
+        "duration": 0.04,
+        "width": 512,
+        "height": 512,
+        "fps": 25.0,
+        "codec": "mjpeg"
+      },
+      "cost_usd": 0.025,
+      "checksum": "sha256:47c73256ece617f5c4f6964d7d31007f08b5f9d5810a61b07b8b0915d59f4299",
+      "notes": "Prof Hickory NPC sprite"
+    },
+    {
+      "id": "ast_0005",
+      "kind": "image",
+      "path": "assets/gen/rusty.png",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f08/KwiOiDbKFG7OCKDUrNcRD.jpg",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/flux/dev",
+        "prompt": "Game Boy Color era pixel art JRPG NPC sprite: an anthropomorphic red crab mechanic character with welding goggles on his forehead, holding a small wrench in one claw, grumpy expression, brick red shell body, standing upright facing the viewer, centered full body, flat solid dark purple background, thick black outlines, flat colors, limited palette of brick red, cream, tan, purple, deep purple and black, crisp pixel edges, no text, no watermark",
+        "seed": 11,
+        "params": {
+          "image_size": "square"
+        }
+      },
+      "specs": {
+        "duration": 0.04,
+        "width": 512,
+        "height": 512,
+        "fps": 25.0,
+        "codec": "mjpeg"
+      },
+      "cost_usd": 0.025,
+      "checksum": "sha256:4edd0f4f22efc9d07f440a868b60c82bbe8c636929ee9d0a3c6ba260e8e45784",
+      "notes": "Rusty the crab NPC sprite"
+    },
+    {
+      "id": "ast_0006",
+      "kind": "image",
+      "path": "assets/gen/coco.png",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f08/90sqkCQIIVIJMBoCEnbma.jpg",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/flux/dev",
+        "prompt": "Game Boy Color era pixel art JRPG NPC sprite: an anthropomorphic coconut character with green palm leaf tuft on top of a brown round head, big friendly eyes, small toolbelt around the brown shell body, standing facing the viewer, centered full body, flat solid dark purple background, thick black outlines, flat colors, limited palette of brown, moss green, cream, tan, purple, deep purple and black, crisp pixel edges, no text, no watermark",
+        "seed": 12,
+        "params": {
+          "image_size": "square"
+        }
+      },
+      "specs": {
+        "duration": 0.04,
+        "width": 512,
+        "height": 512,
+        "fps": 25.0,
+        "codec": "mjpeg"
+      },
+      "cost_usd": 0.025,
+      "checksum": "sha256:3d1299a872603956310a4bafcb67c52635b4edfb77f8b2b86606d7a8e98a8c70",
+      "notes": "Coco the coconut NPC sprite"
+    },
+    {
+      "id": "ast_0007",
+      "kind": "image",
+      "path": "assets/gen/pip.png",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f09/wMB0CZLmaba2bHNzZDgPn.jpg",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/flux/dev",
+        "prompt": "Game Boy Color era pixel art JRPG NPC sprite: an anthropomorphic green python snake librarian character with round glasses, coiled upright like a standing figure, holding a small open book in coils, moss green scales with dark green belly, calm scholarly expression, facing the viewer, centered full body, flat solid dark purple background, thick black outlines, flat colors, limited palette of moss green, cream, tan, purple, deep purple and black, crisp pixel edges, no text, no watermark",
+        "seed": 13,
+        "params": {
+          "image_size": "square"
+        }
+      },
+      "specs": {
+        "duration": 0.04,
+        "width": 512,
+        "height": 512,
+        "fps": 25.0,
+        "codec": "mjpeg"
+      },
+      "cost_usd": 0.025,
+      "checksum": "sha256:342b92dc0fbc760a6079f153f00f2ed05eab67dea538e41e2512cdeea87123f4",
+      "notes": "Pip the python NPC sprite"
+    },
+    {
+      "id": "ast_0008",
+      "kind": "image",
+      "path": "assets/gen/djmac.png",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f0c/H_baHPUBoglxGhaYiL49i.jpg",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/flux/dev",
+        "prompt": "Game Boy Color era pixel art JRPG NPC sprite: an anthropomorphic macadamia nut DJ character with big black over-ear headphones and black sunglasses, cream round nut body, groovy leaning pose with one arm raised, facing the viewer, centered full body, flat solid dark purple background, thick black outlines, flat colors, limited palette of cream, tan, black, purple, deep purple, crisp pixel edges, no text, no watermark",
+        "seed": 14,
+        "params": {
+          "image_size": "square"
+        }
+      },
+      "specs": {
+        "duration": 0.04,
+        "width": 512,
+        "height": 512,
+        "fps": 25.0,
+        "codec": "mjpeg"
+      },
+      "cost_usd": 0.025,
+      "checksum": "sha256:9bc0a6d8a0845e78c7b2b37156c9a32b425ced1bd90081174093c9b6161173fb",
+      "notes": "DJ Mac NPC sprite"
+    },
+    {
+      "id": "ast_0009",
+      "kind": "image",
+      "path": "assets/gen/kimi.png",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f0c/ccQ3H0DeLT85MO-NtMJk-.jpg",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/flux/dev",
+        "prompt": "Game Boy Color era pixel art JRPG NPC sprite: a mysterious anthropomorphic nut hacker character wearing a deep red hooded cloak with visor goggles, messenger bag across the chest, calm confident stance, facing the viewer, centered full body, flat solid dark purple background, thick black outlines, flat colors, limited palette of brick red, cream, tan, purple, deep purple and black, crisp pixel edges, no text, no watermark",
+        "seed": 15,
+        "params": {
+          "image_size": "square"
+        }
+      },
+      "specs": {
+        "duration": 0.04,
+        "width": 512,
+        "height": 512,
+        "fps": 25.0,
+        "codec": "mjpeg"
+      },
+      "cost_usd": 0.025,
+      "checksum": "sha256:e9655ae6f45d7db6d3db479234ad243a73e8b3fb8fea15826c9fafcaf9d01f40",
+      "notes": "Kimi NPC sprite"
+    },
+    {
+      "id": "ast_0010",
+      "kind": "image",
+      "path": "assets/gen/receptionist.png",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f0c/3rwYZnRKiK8NcJgwA3H96.jpg",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/flux/dev",
+        "prompt": "Game Boy Color era pixel art JRPG NPC sprite: a friendly anthropomorphic nut office receptionist wearing a purple blazer and a small headset with microphone, holding a clipboard, warm smile, facing the viewer, centered full body, flat solid dark purple background, thick black outlines, flat colors, limited palette of purple, cream, tan, white, deep purple and black, crisp pixel edges, no text, no watermark",
+        "seed": 16,
+        "params": {
+          "image_size": "square"
+        }
+      },
+      "specs": {
+        "duration": 0.04,
+        "width": 512,
+        "height": 512,
+        "fps": 25.0,
+        "codec": "mjpeg"
+      },
+      "cost_usd": 0.025,
+      "checksum": "sha256:14e8695d5519ff0179ca3cfdc92c0167f4a3e852fa67672a6c62e1fdca043917",
+      "notes": "Receptionist NPC sprite"
+    },
+    {
+      "id": "ast_0011",
+      "kind": "image",
+      "path": "assets/gen/civ-doner.png",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f0c/_RCIorEbzBZF8p4_XrMkh.jpg",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/flux/dev",
+        "prompt": "Game Boy Color era pixel art JRPG NPC sprite: a plump anthropomorphic nut street food vendor with a thick mustache, white apron over tan shell body, holding a wrapped d\u00f6ner kebab, cheerful expression, facing the viewer, centered full body, flat solid dark purple background, thick black outlines, flat colors, limited palette of cream, tan, white, brick red, deep purple and black, crisp pixel edges, no text, no watermark",
+        "seed": 17,
+        "params": {
+          "image_size": "square"
+        }
+      },
+      "specs": {
+        "duration": 0.04,
+        "width": 512,
+        "height": 512,
+        "fps": 25.0,
+        "codec": "mjpeg"
+      },
+      "cost_usd": 0.025,
+      "checksum": "sha256:09dbe42aeb1bc70ddeabc095281e4225125a26039c48d40068e3daead3e2cb8e",
+      "notes": "Civilian Doner Dan sprite"
+    },
+    {
+      "id": "ast_0012",
+      "kind": "image",
+      "path": "assets/gen/civ-commuter.png",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f0d/imHI5SeARpH-faVtF0Wx3.jpg",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/flux/dev",
+        "prompt": "Game Boy Color era pixel art JRPG NPC sprite: an anthropomorphic nut commuter character in a long grey coat carrying a tote bag, tired expression with half-closed eyes, facing the viewer, centered full body, flat solid dark purple background, thick black outlines, flat colors, limited palette of grey, cream, tan, purple, deep purple and black, crisp pixel edges, no text, no watermark",
+        "seed": 18,
+        "params": {
+          "image_size": "square"
+        }
+      },
+      "specs": {
+        "duration": 0.04,
+        "width": 512,
+        "height": 512,
+        "fps": 25.0,
+        "codec": "mjpeg"
+      },
+      "cost_usd": 0.025,
+      "checksum": "sha256:25810b18f1c881120913486c3380749328fe79d01b3a18692ff6d571258ac0eb",
+      "notes": "Civilian commuter sprite"
+    },
+    {
+      "id": "ast_0013",
+      "kind": "image",
+      "path": "assets/gen/tile-floor.png",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f0d/XNuZAP6lddY4_45QgDF57.jpg",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/flux/dev",
+        "prompt": "Seamless top-down pixel art game tile texture: cobblestone street pavement, grey-purple cobblestones with darker grout lines, Game Boy Color era 16x16 tile style, flat colors, crisp pixel edges, evenly lit, no shadows, no text, no watermark, fills the whole frame edge to edge",
+        "seed": 19,
+        "params": {
+          "image_size": "square"
+        }
+      },
+      "specs": {
+        "duration": 0.04,
+        "width": 512,
+        "height": 512,
+        "fps": 25.0,
+        "codec": "mjpeg"
+      },
+      "cost_usd": 0.025,
+      "checksum": "sha256:a3d75a71cf943756ea676ed2443d1dd9d284d779c941ec9e762c3abb1ebaacbc",
+      "notes": "Cobblestone floor tile"
+    },
+    {
+      "id": "ast_0014",
+      "kind": "image",
+      "path": "assets/gen/tile-wall.png",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f11/PizM6Xgd33lj_XBDvF2B_.jpg",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/flux/dev",
+        "prompt": "Seamless top-down pixel art game tile texture: dark purple brick building wall, deep purple bricks with slightly lighter mortar lines, a few cream window shutters at the top edge, Game Boy Color era 16x16 tile style, flat colors, crisp pixel edges, evenly lit, no shadows, no text, no watermark, fills the whole frame edge to edge",
+        "seed": 20,
+        "params": {
+          "image_size": "square"
+        }
+      },
+      "specs": {
+        "duration": 0.04,
+        "width": 512,
+        "height": 512,
+        "fps": 25.0,
+        "codec": "mjpeg"
+      },
+      "cost_usd": 0.025,
+      "checksum": "sha256:a4722b4420b10d6cd4d21ef8241e0cb70ccb3f3326bd160cf4e3fe0f8f4b8c7c",
+      "notes": "Building wall tile"
+    },
+    {
+      "id": "ast_0015",
+      "kind": "image",
+      "path": "assets/gen/tile-water.png",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f12/PdDiGZdV7rNCuI2RuEQE1.jpg",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/flux/dev",
+        "prompt": "Seamless top-down pixel art game tile texture: canal river water, blue water with small lighter blue pixel wave crests and dark blue depth patches, Game Boy Color era 16x16 tile style, flat colors, crisp pixel edges, evenly lit, no reflections, no text, no watermark, fills the whole frame edge to edge",
+        "seed": 21,
+        "params": {
+          "image_size": "square"
+        }
+      },
+      "specs": {
+        "duration": 0.04,
+        "width": 512,
+        "height": 512,
+        "fps": 25.0,
+        "codec": "mjpeg"
+      },
+      "cost_usd": 0.025,
+      "checksum": "sha256:1857f3f6df1d4a74a43b9ca5e3cf7a99382c2e84d16501621b2a49091ce8ef93",
+      "notes": "Canal water tile"
+    },
+    {
+      "id": "ast_0016",
+      "kind": "image",
+      "path": "assets/gen/tile-door.png",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f15/Fc231y96Enahc8gJzn_Op.jpg",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/flux/dev",
+        "prompt": "Top-down pixel art game asset: a single warm tan wooden door with an arched top and round purple doorknob, viewed straight on, set into dark purple brick wall background, Game Boy Color era 16x16 tile style, flat colors, crisp pixel edges, no text, no watermark, door fills most of the frame",
+        "seed": 22,
+        "params": {
+          "image_size": "square"
+        }
+      },
+      "specs": {
+        "duration": 0.04,
+        "width": 512,
+        "height": 512,
+        "fps": 25.0,
+        "codec": "mjpeg"
+      },
+      "cost_usd": 0.025,
+      "checksum": "sha256:4daa765fa4daac1e5aa23c823f2b869f681f7f73806844a3c0104a9074bc475b",
+      "notes": "Door tile"
+    },
+    {
+      "id": "ast_0017",
+      "kind": "image",
+      "path": "assets/gen/sign.png",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f15/uKvmf7_-co4RoZFbCfnhP.jpg",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/flux/dev",
+        "prompt": "Top-down pixel art game asset: a small wooden signpost with a cream rectangular sign board on a brown post, blank sign face with two thin dark text-line marks, set against a flat dark purple background, Game Boy Color era 16x16 tile style, flat colors, crisp pixel edges, no readable text, no watermark, object centered and fills most of the frame",
+        "seed": 23,
+        "params": {
+          "image_size": "square"
+        }
+      },
+      "specs": {
+        "duration": 0.04,
+        "width": 512,
+        "height": 512,
+        "fps": 25.0,
+        "codec": "mjpeg"
+      },
+      "cost_usd": 0.025,
+      "checksum": "sha256:3c104b3f790a972b497cc4bdfc3c6dfd0fce779770f60fdd08a26a2c0b9a1a86",
+      "notes": "Signpost prop"
+    },
+    {
+      "id": "ast_0018",
+      "kind": "image",
+      "path": "assets/gen/pickup.png",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f16/DrgQTfp-cnqOmjWbY0-9O.jpg",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/flux/dev",
+        "prompt": "Top-down pixel art game asset: a small glowing purple and cream treasure chest pickup with a bright cream sparkle star above it, set against a flat dark purple background, Game Boy Color era 16x16 tile style, flat colors, crisp pixel edges, no text, no watermark, object centered and fills most of the frame",
+        "seed": 24,
+        "params": {
+          "image_size": "square"
+        }
+      },
+      "specs": {
+        "duration": 0.04,
+        "width": 512,
+        "height": 512,
+        "fps": 25.0,
+        "codec": "mjpeg"
+      },
+      "cost_usd": 0.025,
+      "checksum": "sha256:9416f461c9b0e74692c6dc200f3c65dc1867fa7a1ed116780a2550aeb80404a4",
+      "notes": "Hidden token pickup prop"
+    },
+    {
+      "id": "ast_0019",
+      "kind": "music",
+      "path": "assets/audio/title.mp3",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f33/8gVoqR2vnEcTMe0euQtE__HLiYlU4R.wav",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/stable-audio-25/text-to-audio",
+        "prompt": "8-bit chiptune title theme, Game Boy style, hopeful adventure melody, square wave lead, triangle bass, simple percussion, bright and inviting, clean loopable game music, no vocals",
+        "seed": null,
+        "params": {
+          "seconds_total": 45
+        }
+      },
+      "specs": {
+        "duration": 45.0,
+        "codec": "pcm_s16le"
+      },
+      "cost_usd": 0.1125,
+      "checksum": "sha256:d2f1696c4520908a1d663224f4598b41f4870a0faea67e064bfd8390c2e51819",
+      "notes": "Title theme"
+    },
+    {
+      "id": "ast_0020",
+      "kind": "music",
+      "path": "assets/audio/overworld.mp3",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f33/8DnYExwKDXa6iQurNDyn9_v1xJ7hNy.wav",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/stable-audio-25/text-to-audio",
+        "prompt": "8-bit chiptune overworld theme, cheerful city walking music, Game Boy style, bouncy square wave melody, light triangle bass, steady groove, sunny afternoon mood, clean loopable game music, no vocals",
+        "seed": null,
+        "params": {
+          "seconds_total": 45
+        }
+      },
+      "specs": {
+        "duration": 45.0,
+        "codec": "pcm_s16le"
+      },
+      "cost_usd": 0.1125,
+      "checksum": "sha256:ab8a304eda1b64bb437ae1896c8ace1ef55fb54772e7651f1c5ca3e909b8b7fa",
+      "notes": "Overworld theme"
+    },
+    {
+      "id": "ast_0021",
+      "kind": "music",
+      "path": "assets/audio/lab.mp3",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f34/R381YiQxUhkQYMur6bnop_5sjKsB5v.wav",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/stable-audio-25/text-to-audio",
+        "prompt": "8-bit chiptune laboratory theme, curious and scholarly, Game Boy style, playful arpeggios, gentle square wave melody, warm and inquisitive mood, clean loopable game music, no vocals",
+        "seed": null,
+        "params": {
+          "seconds_total": 45
+        }
+      },
+      "specs": {
+        "duration": 45.0,
+        "codec": "pcm_s16le"
+      },
+      "cost_usd": 0.1125,
+      "checksum": "sha256:83c47d28dc5674b028cd9775b7a95846536587f6e10197eab3d32e3271b86ab5",
+      "notes": "Lab theme"
+    },
+    {
+      "id": "ast_0022",
+      "kind": "music",
+      "path": "assets/audio/hq.mp3",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f34/eG3Ay3kNbP2AzZZNliol5_hkWClXp6.wav",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/stable-audio-25/text-to-audio",
+        "prompt": "8-bit chiptune corporate skyscraper lobby theme, sleek and professional, Game Boy style, smooth bassline, glassy arpeggios, calm efficient mood, clean loopable game music, no vocals",
+        "seed": null,
+        "params": {
+          "seconds_total": 45
+        }
+      },
+      "specs": {
+        "duration": 45.0,
+        "codec": "pcm_s16le"
+      },
+      "cost_usd": 0.1125,
+      "checksum": "sha256:d1e58d4e9a197c96abd0b5c56d8976c0779c9b347b2db6fea90baadc4847e0d5",
+      "notes": "Minibits HQ theme"
+    },
+    {
+      "id": "ast_0023",
+      "kind": "music",
+      "path": "assets/audio/title.mp3",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f35/gJCZ_c0aK6Udxwa4RSedh_UqhHmsyL.wav",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/stable-audio-25/text-to-audio",
+        "prompt": "8-bit chiptune title theme, Game Boy style, hopeful adventure melody, square wave lead, triangle bass, simple percussion, bright and inviting, clean loopable game music, no vocals",
+        "seed": null,
+        "params": {
+          "seconds_total": 30
+        }
+      },
+      "specs": {
+        "duration": 30.0,
+        "codec": "pcm_s16le"
+      },
+      "cost_usd": 0.075,
+      "checksum": "sha256:8cf0af830f7eb77eaf28a9be0b813a54264297e53c23b836f7245396d6ac7cb3",
+      "notes": "Title theme"
+    },
+    {
+      "id": "ast_0024",
+      "kind": "music",
+      "path": "assets/audio/overworld.mp3",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f38/6_vwERHDwNFiYAkHFwTjZ_jMW3mtwk.wav",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/stable-audio-25/text-to-audio",
+        "prompt": "8-bit chiptune overworld theme, cheerful city walking music, Game Boy style, bouncy square wave melody, light triangle bass, steady groove, sunny afternoon mood, clean loopable game music, no vocals",
+        "seed": null,
+        "params": {
+          "seconds_total": 30
+        }
+      },
+      "specs": {
+        "duration": 30.0,
+        "codec": "pcm_s16le"
+      },
+      "cost_usd": 0.075,
+      "checksum": "sha256:cc1c313263ca5c31e9eb44d38a74d1e54fbd1808521c8d7080eb3c10ab009c32",
+      "notes": "Overworld theme"
+    },
+    {
+      "id": "ast_0025",
+      "kind": "music",
+      "path": "assets/audio/lab.mp3",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f3a/XlOqYkhn3T2G_UIwZOlF0_b4joNw67.wav",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/stable-audio-25/text-to-audio",
+        "prompt": "8-bit chiptune laboratory theme, curious and scholarly, Game Boy style, playful arpeggios, gentle square wave melody, warm inquisitive mood, clean loopable game music, no vocals",
+        "seed": null,
+        "params": {
+          "seconds_total": 30
+        }
+      },
+      "specs": {
+        "duration": 30.0,
+        "codec": "pcm_s16le"
+      },
+      "cost_usd": 0.075,
+      "checksum": "sha256:69933cedf6516908dc230e21585b6cb296f59c569c6797c2fedfc73cfe3f8add",
+      "notes": "Lab theme"
+    },
+    {
+      "id": "ast_0026",
+      "kind": "music",
+      "path": "assets/audio/hq.mp3",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f3e/G4qhmEa_ha8NOcK1zwhM-_pOK6HeXo.wav",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/stable-audio-25/text-to-audio",
+        "prompt": "8-bit chiptune corporate skyscraper lobby theme, sleek and professional, Game Boy style, smooth bassline, glassy arpeggios, calm efficient mood, clean loopable game music, no vocals",
+        "seed": null,
+        "params": {
+          "seconds_total": 30
+        }
+      },
+      "specs": {
+        "duration": 30.0,
+        "codec": "pcm_s16le"
+      },
+      "cost_usd": 0.075,
+      "checksum": "sha256:02fbd4eec063d9a37f9f8b1d52328ec2dbadcdeaf08d293ceacf0292613deb91",
+      "notes": "Minibits HQ theme"
+    },
+    {
+      "id": "ast_0027",
+      "kind": "music",
+      "path": "assets/audio/club.mp3",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f41/nPTHVn5xarD5T1wuq96OB_fDnLBI5G.wav",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/stable-audio-25/text-to-audio",
+        "prompt": "8-bit chiptune dance club theme, funky bassline groove, Game Boy style, punchy square lead, dance beat, party mood with a missing vinyl soul, clean loopable game music, no vocals",
+        "seed": null,
+        "params": {
+          "seconds_total": 30
+        }
+      },
+      "specs": {
+        "duration": 30.0,
+        "codec": "pcm_s16le"
+      },
+      "cost_usd": 0.075,
+      "checksum": "sha256:5ee897c3436d2bdcbd4a6e5db6a882ee15e9b3251304e081e4a2d22c3ecb9d77",
+      "notes": "DJ Mac club theme"
+    },
+    {
+      "id": "ast_0028",
+      "kind": "music",
+      "path": "assets/audio/hideout.mp3",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f43/kkBHIDIuXe9RCFoTjqjMU_4qO90M5Q.wav",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/stable-audio-25/text-to-audio",
+        "prompt": "8-bit chiptune secret hideout theme, mysterious minor key, Game Boy style, stealthy bass pulse, sparse eerie melody, hacker lair mood, clean loopable game music, no vocals",
+        "seed": null,
+        "params": {
+          "seconds_total": 30
+        }
+      },
+      "specs": {
+        "duration": 30.0,
+        "codec": "pcm_s16le"
+      },
+      "cost_usd": 0.075,
+      "checksum": "sha256:b9461c85d75035ea02650f4c00d199621c0413e98b293f9fb13a8772f96b5508",
+      "notes": "Kimi hideout theme"
+    },
+    {
+      "id": "ast_0029",
+      "kind": "music",
+      "path": "assets/audio/ceremony.mp3",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f45/L-U-GATDeJIwpgPDBYJMQ_sFfHBG3d.wav",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/stable-audio-25/text-to-audio",
+        "prompt": "8-bit chiptune triumphant ceremony theme, grand merge celebration fanfare, Game Boy style, soaring square wave melody, warm chords, graduation mood, dignified and joyful, clean loopable game music, no vocals",
+        "seed": null,
+        "params": {
+          "seconds_total": 30
+        }
+      },
+      "specs": {
+        "duration": 30.0,
+        "codec": "pcm_s16le"
+      },
+      "cost_usd": 0.075,
+      "checksum": "sha256:a249ee0a927c2e7fe4d3607dae0ca03afbe0dff964628c255319425411115b09",
+      "notes": "Merge ceremony theme"
+    },
+    {
+      "id": "ast_0030",
+      "kind": "music",
+      "path": "assets/audio/night.mp3",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f48/FyMKB_kV16qlsJnCuaeGL_Ooe0tViU.wav",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/stable-audio-25/text-to-audio",
+        "prompt": "8-bit chiptune night theme, calm nocturnal city, slow gentle melancholic melody, Game Boy style, soft triangle waves, crickets-in-the-distance mood, peaceful and dreamy, clean loopable game music, no vocals",
+        "seed": null,
+        "params": {
+          "seconds_total": 30
+        }
+      },
+      "specs": {
+        "duration": 30.0,
+        "codec": "pcm_s16le"
+      },
+      "cost_usd": 0.075,
+      "checksum": "sha256:2538cc0351327935f54dbf25d1c61a531bd1f2770406a1e656f2ecbf8e71b9ec",
+      "notes": "Night overworld theme"
+    },
+    {
+      "id": "ast_0031",
+      "kind": "music",
+      "path": "assets/audio/sfx-item.mp3",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f4b/AoH6YRfxf2JcqTvvQUmmz_erkyBtuy.wav",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/stable-audio-25/text-to-audio",
+        "prompt": "8-bit chiptune item get jingle, short triumphant 3 second fanfare, Game Boy style, bright rising arpeggio, victory sparkle, no vocals",
+        "seed": null,
+        "params": {
+          "seconds_total": 3
+        }
+      },
+      "specs": {
+        "duration": 3.0,
+        "codec": "pcm_s16le"
+      },
+      "cost_usd": 0.0075,
+      "checksum": "sha256:03fd561558ad7b10ca305980e68e1f4c5495782e9499716431666bcc5e934138",
+      "notes": "Item-get jingle"
+    },
+    {
+      "id": "ast_0032",
+      "kind": "music",
+      "path": "assets/audio/sfx-token.mp3",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f4d/LlUiCAfAQ2JPpE_XPrrPm_zA6hWxv5.wav",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/stable-audio-25/text-to-audio",
+        "prompt": "8-bit chiptune coin collect sting, short bright 3 second sparkle, Game Boy style, golden shimmer arpeggio, magical unlock feeling, no vocals",
+        "seed": null,
+        "params": {
+          "seconds_total": 3
+        }
+      },
+      "specs": {
+        "duration": 3.0,
+        "codec": "pcm_s16le"
+      },
+      "cost_usd": 0.0075,
+      "checksum": "sha256:c2bfedc65bd161f11a7c425245847e876cd36242901332a353a5397c2fe0fd09",
+      "notes": "Token unlock sting"
+    },
+    {
+      "id": "ast_0033",
+      "kind": "sfx",
+      "path": "assets/audio/sfx-menu.mp3",
+      "source": {
+        "provider": "freesound",
+        "url": "https://freesound.org/people/Fupicat/sounds/471937/",
+        "license": "CC0 1.0 (Public Domain)",
+        "license_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": null,
+      "specs": {
+        "duration": 0.926,
+        "codec": "mp3"
+      },
+      "cost_usd": 0.0,
+      "checksum": "sha256:355a7c65b20d6da4ea5374292cdb7251dbb766ab954fe9121a89f88a5fa5edc9",
+      "notes": "Menu select blip (CC0) | name=Videogame Menu Select | author=Fupicat | query=8 bit menu select blip"
+    },
+    {
+      "id": "ast_0034",
+      "kind": "sfx",
+      "path": "assets/audio/sfx-door.mp3",
+      "source": {
+        "provider": "freesound",
+        "url": "https://freesound.org/people/Ryding/sounds/125958/",
+        "license": "CC0 1.0 (Public Domain)",
+        "license_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": null,
+      "specs": {
+        "duration": 2.871,
+        "codec": "mp3"
+      },
+      "cost_usd": 0.0,
+      "checksum": "sha256:5607b7f609c9e3f817a7bf82113c2915105409c37ef6a7d29b9363aa0e0a245c",
+      "notes": "Door transition SFX (CC0) | name=Wooden door open-close | author=Ryding | query=wooden door open close"
+    },
+    {
+      "id": "ast_0035",
+      "kind": "music",
+      "path": "assets/audio/sfx-text.mp3",
+      "source": {
+        "provider": "fal",
+        "url": "https://v3b.fal.media/files/b/0aac7f55/mI6g0X-K6T69Kfw1PrADT_mBGYnZer.wav",
+        "license": "fal / model provider terms",
+        "license_url": "",
+        "attribution_required": false,
+        "commercial_ok": true
+      },
+      "generation": {
+        "provider": "fal",
+        "model": "fal-ai/stable-audio-25/text-to-audio",
+        "prompt": "8-bit chiptune dialogue text blip, a single short soft square wave beep like a Game Boy text cursor tick, very quiet and quick, no vocals",
+        "seed": null,
+        "params": {
+          "seconds_total": 1
+        }
+      },
+      "specs": {
+        "duration": 1.0,
+        "codec": "pcm_s16le"
+      },
+      "cost_usd": 0.0025,
+      "checksum": "sha256:c361ed6442c6d7b7f5fb9a2a49ed57e14332db2103af6ae0163da806aca107c8",
+      "notes": "Dialogue text blip"
+    }
+  ],
+  "totals": {
+    "count": 35,
+    "cost_usd": 1.5175
+  }
+}

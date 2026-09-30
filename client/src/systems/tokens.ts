@@ -2,6 +2,7 @@ import type { MilestoneId, UnlockResponse } from '@cashu-xx/shared';
 import { MILESTONE_LABELS } from '@cashu-xx/shared';
 import type { DialogManager } from '../ui/DialogManager';
 import type { QRPanel } from '../ui/QRPanel';
+import { audio } from './audio';
 import { api } from './api';
 import { setFlag } from './quests';
 import { getGameSession } from './session';
@@ -36,6 +37,7 @@ export async function showTokenClaim(ui: ClaimUI, milestoneId: MilestoneId): Pro
   const label = MILESTONE_LABELS[milestoneId];
   if (result.token) {
     ui.showToast('Token unlocked!');
+    audio.playSfx('sfx-token');
     await ui.qr.open(
       `TOKEN — ${label} — 10 SATS`,
       result.token,

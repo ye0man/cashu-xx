@@ -12,6 +12,8 @@ import {
 } from '../data/maps';
 import { NPCS } from '../data/npcs';
 import { SIGNS } from '../data/signs';
+import { audio, type ThemeKey } from '../systems/audio';
+import { NightOverlay } from '../systems/lighting';
 import { type Direction, DELTAS, GridMover } from '../systems/movement';
 import { hasFlag } from '../systems/quests';
 import { worldState } from '../systems/save';
@@ -29,9 +31,26 @@ interface WorldEntry {
   facing?: Direction;
 }
 
-const WATER_COLOR = 0x2c5f8a;
-const WALL_COLOR = 0x1e1036;
-const DOOR_COLOR = 0xc9a87c;
+const MAP_THEMES: Record<string, ThemeKey> = {
+  nussstadt: 'overworld',
+  lab: 'lab',
+  cafe: 'overworld',
+  'minibits-hq': 'hq',
+  'rusty-workshop': 'overworld',
+  'palm-house': 'overworld',
+  library: 'overworld',
+  club: 'club',
+  hideout: 'hideout',
+};
+
+const FRAME_INDEX: Record<Direction, number> = {
+  down: 0,
+  up: 1,
+  right: 2,
+  left: 2,
+};
+
+const WALK_BOB_MS = 160;
 
 export class WorldScene extends Phaser.Scene {
   private mapDef!: MapDef;
@@ -41,13 +60,17 @@ export class WorldScene extends Phaser.Scene {
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
   private actionKeys!: Phaser.Input.Keyboard.Key[];
   private menuKey!: Phaser.Input.Keyboard.Key;
+  private nightKey!: Phaser.Input.Keyboard.Key;
   private dialog!: DialogManager;
   private menu!: MenuManager;
   private qrPanel!: QRPanel;
   private tokenBank!: TokenBank;
+  private night!: NightOverlay;
   private hint!: Phaser.GameObjects.Text;
   private toast!: Phaser.GameObjects.Text;
   private toastEvent: Phaser.Time.TimerEvent | null = null;
+  private walkClock = 0;
+  private nightOn = false;
   private entry: WorldEntry = {};
 
   constructor() {
@@ -61,11 +84,14 @@ export class WorldScene extends Phaser.Scene {
   create(): void {
     const mapId = this.entry.mapId ?? 'nussstadt';
     this.mapDef = MAPS[mapId];
+    this.nightOn = mapId === 'hideout';
     const { tile } = GAME_CONFIG;
     const worldWidth = this.mapDef.cols * tile;
     const worldHeight = this.mapDef.rows * tile;
 
     this.drawWorld();
+    this.night = new NightOverlay(this, worldWidth, worldHeight);
+    this.night.setEnabled(this.nightOn);
 
     const startX = this.entry.tileX ?? this.mapDef.spawn.x;
     const startY = this.entry.tileY ?? this.mapDef.spawn.y;
@@ -80,7 +106,10 @@ export class WorldScene extends Phaser.Scene {
       this.mover.facing = this.entry.facing;
     }
 
-    this.player = this.add.sprite(this.mover.pixelX, this.mover.pixelY, 'player').setOrigin(0.5, 1);
+    this.player = this.add
+      .sprite(this.mover.pixelX, this.mover.pixelY, 'player', 0)
+      .setOrigin(0.5, 1);
+    this.applyPlayerFrame();
     this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
     this.cameras.main.startFollow(this.player, true, 0.2, 0.2);
 
@@ -94,7 +123,7 @@ export class WorldScene extends Phaser.Scene {
       .setDepth(50);
 
     this.hint = this.add
-      .text(8, GAME_CONFIG.height - 18, 'ARROWS/WASD move   Z talk/read   X menu', {
+      .text(8, GAME_CONFIG.height - 18, 'ARROWS/WASD move   Z talk/read   X menu   N night', {
         fontFamily: 'Courier New',
         fontSize: '11px',
         color: '#b0a8bd',
@@ -135,7 +164,9 @@ export class WorldScene extends Phaser.Scene {
     this.wasd = keyboard.addKeys('W,A,S,D') as Record<string, Phaser.Input.Keyboard.Key>;
     this.actionKeys = [keyboard.addKey('Z'), keyboard.addKey('SPACE'), keyboard.addKey('ENTER')];
     this.menuKey = keyboard.addKey('X');
+    this.nightKey = keyboard.addKey('N');
 
+    this.playMapTheme();
     this.cameras.main.fadeIn(250, 0, 0, 0);
   }
 
@@ -157,6 +188,12 @@ export class WorldScene extends Phaser.Scene {
       this.menu.open();
       return;
     }
+    if (Phaser.Input.Keyboard.JustDown(this.nightKey)) {
+      this.nightOn = !this.nightOn;
+      this.night.setEnabled(this.nightOn);
+      this.playMapTheme();
+      return;
+    }
 
     const wasMoving = this.mover.moving;
     const direction = this.readDirection();
@@ -165,9 +202,24 @@ export class WorldScene extends Phaser.Scene {
     }
     this.mover.update(delta);
     this.player.setPosition(this.mover.pixelX, this.mover.pixelY);
+    if (this.mover.moving) {
+      this.walkClock += delta;
+    } else {
+      this.walkClock = 0;
+    }
+    this.applyPlayerFrame();
     if (wasMoving && !this.mover.moving) {
       this.onStepComplete();
     }
+  }
+
+  private applyPlayerFrame(): void {
+    const bob = this.mover.moving && this.walkClock % (WALK_BOB_MS * 2) < WALK_BOB_MS;
+    const frame = FRAME_INDEX[this.mover.facing] + (bob ? 3 : 0);
+    if (this.player.texture.frameTotal > 3) {
+      this.player.setFrame(frame);
+    }
+    this.player.setFlipX(this.mover.facing === 'left');
   }
 
   private drawWorld(): void {
@@ -176,36 +228,39 @@ export class WorldScene extends Phaser.Scene {
       .tileSprite(0, 0, this.mapDef.cols * tile, this.mapDef.rows * tile, 'tile-floor')
       .setOrigin(0);
 
-    const graphics = this.add.graphics();
-    graphics.fillStyle(WATER_COLOR, 1);
     for (const rect of this.mapDef.water) {
-      graphics.fillRect(rect.x * tile, rect.y * tile, rect.w * tile, rect.h * tile);
+      this.add
+        .tileSprite(rect.x * tile, rect.y * tile, rect.w * tile, rect.h * tile, 'tile-water')
+        .setOrigin(0);
     }
-    graphics.fillStyle(WALL_COLOR, 1);
     for (const rect of this.mapDef.walls) {
-      graphics.fillRect(rect.x * tile, rect.y * tile, rect.w * tile, rect.h * tile);
+      this.add
+        .tileSprite(rect.x * tile, rect.y * tile, rect.w * tile, rect.h * tile, 'tile-wall')
+        .setOrigin(0);
     }
-    graphics.fillStyle(DOOR_COLOR, 1);
     for (const door of this.mapDef.doors) {
-      graphics.fillRect(door.x * tile + 2, door.y * tile + 2, tile - 4, tile - 2);
+      this.add.image(door.x * tile + tile / 2, door.y * tile + tile / 2, 'tile-door');
     }
-
     for (const spot of this.mapDef.signs) {
       this.add.image(spot.x * tile + tile / 2, spot.y * tile + tile / 2, 'sign');
     }
-
     for (const spot of this.mapDef.npcs) {
       const def = NPCS[spot.npcId];
       if (def) {
         this.add.sprite(spot.x * tile + tile / 2, (spot.y + 1) * tile, def.texture).setOrigin(0.5, 1);
       }
     }
-
     for (const spot of this.mapDef.pickups) {
       if (!hasFlag(spot.flag)) {
         this.add.image(spot.x * tile + tile / 2, spot.y * tile + tile / 2, 'pickup');
       }
     }
+  }
+
+  private playMapTheme(): void {
+    const base = MAP_THEMES[this.mapDef.id] ?? 'overworld';
+    const theme = this.mapDef.outdoor && this.nightOn ? 'night' : base;
+    audio.playTheme(theme);
   }
 
   private onStepComplete(): void {
@@ -216,6 +271,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private warp(door: DoorDef): void {
+    audio.playSfx('sfx-door');
     this.cameras.main.fadeOut(250, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.restart({

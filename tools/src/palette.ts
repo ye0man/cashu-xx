@@ -18,3 +18,27 @@ export const PALETTE: Record<string, number> = {
 };
 
 export const PALETTE_HEX: number[] = Object.values(PALETTE);
+
+export interface Rgb {
+  r: number;
+  g: number;
+  b: number;
+}
+
+export function hexToRgb(hex: number): Rgb {
+  return { r: (hex >> 16) & 0xff, g: (hex >> 8) & 0xff, b: hex & 0xff };
+}
+
+export function snapToPaletteColor(r: number, g: number, b: number): Rgb {
+  let best = hexToRgb(PALETTE_HEX[0]);
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const hex of PALETTE_HEX) {
+    const candidate = hexToRgb(hex);
+    const distance = (candidate.r - r) ** 2 + (candidate.g - g) ** 2 + (candidate.b - b) ** 2;
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = candidate;
+    }
+  }
+  return best;
+}

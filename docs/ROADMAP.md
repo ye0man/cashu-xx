@@ -51,12 +51,12 @@ Phased build plan. Scope: ~30-minute game, one city district, 7 named NPCs,
 
 ## P4 — Art & audio
 
-- [ ] Style bible locked (16-color palette from the Cashu logo)
-- [ ] AI pipeline: generate → downscale → palette-snap → sheet assemble → QA script
-- [ ] Character sheets (XX, Hickory, Rusty, Coco, Pip, DJ Mac, Kimi, receptionist)
-- [ ] Tileset + interiors dressed
-- [ ] 8 chiptune tracks + SFX (text, menu, door, item jingle, token sting)
-- [ ] Night palette swap
+- [x] Style bible locked (16-color palette from the Cashu logo)
+- [x] AI pipeline: generate → downscale → palette-snap → sheet assemble → QA script
+- [x] Character sheets (XX, Hickory, Rusty, Coco, Pip, DJ Mac, Kimi, receptionist)
+- [x] Tileset + interiors dressed
+- [x] 8 chiptune tracks + SFX (text, menu, door, item jingle, token sting)
+- [x] Night palette swap (multiply-overlay night mode, N toggles)
 
 **Exit:** it looks and sounds like Pokémon Crystal's weird Cashu cousin.
 

@@ -1,4 +1,5 @@
 import * as Phaser from 'phaser';
+import { audio } from '../systems/audio';
 import type { DialogueScript } from '../systems/dialogue';
 
 const TYPE_MS_PER_CHAR = 18;
@@ -70,6 +71,7 @@ export class DialogManager {
     this.onDone = onDone ?? null;
     this.speakerText.setText(script.speaker ?? '');
     this.container.setVisible(true);
+    audio.playSfx('sfx-text');
     this.renderLine();
   }
 
@@ -113,6 +115,7 @@ export class DialogManager {
         this.lineIndex += 1;
         this.revealed = 0;
         this.typing = true;
+        audio.playSfx('sfx-text');
         this.renderLine();
       } else {
         this.finish(null);
