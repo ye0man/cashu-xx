@@ -1,5 +1,6 @@
 import * as Phaser from 'phaser';
 import { api } from '../systems/api';
+import { hasSave, loadSave } from '../systems/save';
 import { setGameSession } from '../systems/session';
 
 const LOG_START_Y = 170;
@@ -38,7 +39,7 @@ export class TitleScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     const hint = this.add
-      .text(240, 150, 'PRESS ENTER TO PLAY (100 sats, mock wallet)', {
+      .text(240, 148, 'PRESS ENTER TO PLAY (100 sats, mock wallet)', {
         fontFamily: 'Courier New',
         fontSize: '13px',
         color: '#b0a8bd',
@@ -47,12 +48,38 @@ export class TitleScene extends Phaser.Scene {
 
     this.tweens.add({ targets: hint, alpha: 0.35, duration: 700, yoyo: true, repeat: -1 });
 
+    if (hasSave()) {
+      this.add
+        .text(240, 132, 'PRESS C TO CONTINUE', {
+          fontFamily: 'Courier New',
+          fontSize: '13px',
+          color: '#9d5fe0',
+        })
+        .setOrigin(0.5);
+    }
+
     const keyboard = this.input.keyboard;
     if (keyboard) {
       keyboard.once('keydown-ENTER', () => {
         void this.startGame();
       });
+      keyboard.once('keydown-C', () => {
+        this.continueGame();
+      });
     }
+  }
+
+  private continueGame(): void {
+    const save = loadSave();
+    if (!save) {
+      return;
+    }
+    this.scene.start('WorldScene', {
+      mapId: save.mapId,
+      tileX: save.tileX,
+      tileY: save.tileY,
+      facing: save.facing,
+    });
   }
 
   private log(line: string): void {
@@ -81,12 +108,11 @@ export class TitleScene extends Phaser.Scene {
       const status = await api.depositStatus(session.sessionId);
       this.log(status.paid ? '> PAID — 10 bundles locked' : '> not paid yet');
       await delay(700);
-      this.scene.start('OverworldScene');
     } catch (err) {
       this.log(`> server offline (${(err as Error).message})`);
       this.log('> offline mode: walking only');
       await delay(1000);
-      this.scene.start('OverworldScene');
     }
+    this.scene.start('WorldScene', { mapId: 'nussstadt' });
   }
 }

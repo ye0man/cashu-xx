@@ -37,5 +37,16 @@ export class BootScene extends Phaser.Scene {
     player.fillRect(2, 12, 12, 3);
     player.generateTexture('player', 16, 24);
     player.destroy();
+
+    const sign = this.add.graphics();
+    sign.fillStyle(0x8a6a4a, 1);
+    sign.fillRect(7, 8, 2, 8);
+    sign.fillStyle(0xe8c9a0, 1);
+    sign.fillRect(2, 2, 12, 8);
+    sign.fillStyle(0x120a24, 1);
+    sign.fillRect(4, 4, 8, 1);
+    sign.fillRect(4, 7, 6, 1);
+    sign.generateTexture('sign', 16, 16);
+    sign.destroy();
   }
 }

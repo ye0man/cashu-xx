@@ -196,7 +196,7 @@ re-displays QRs on demand — redemption UI as game content.
 - **Save:** localStorage `{ position, mapId, flags, journal, claimCode }`,
   auto-saved on every milestone. The claim code is the cross-device source of
   truth for tokens.
-- **Maps:** authored in Tiled, exported to JSON, loaded as Phaser tilemaps.
+- **Maps:** code-defined grey-box data (`client/src/data/maps.ts` — walls, water, doors, sign spots) through P1; Tiled-authored tilemaps replace the renderer in P4 without changing `MapDef` consumers.
 
 ## 10. Art & audio pipeline (tools/)
 

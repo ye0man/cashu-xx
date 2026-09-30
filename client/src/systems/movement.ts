@@ -1,6 +1,6 @@
 export type Direction = 'up' | 'down' | 'left' | 'right';
 
-const DELTAS: Record<Direction, [number, number]> = {
+export const DELTAS: Record<Direction, [number, number]> = {
   up: [0, -1],
   down: [0, 1],
   left: [-1, 0],
