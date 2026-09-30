@@ -15,7 +15,7 @@ milestones and found hidden around the city. Scan them with any cashu wallet.
 
 ## Status
 
-Design locked — pre-alpha. See [`docs/ROADMAP.md`](docs/ROADMAP.md).
+P0 scaffold landed — walkable grey-box world + mock wallet loop. See [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Docs
 
@@ -43,13 +43,14 @@ Ecash on the [Minibits mint](https://minibits.cash) (best-effort beta mint — s
 
 ## Development
 
-_(Scaffold lands in P0.)_
-
 ```bash
 npm install
-npm run dev        # mock wallet — free
-npm run dev:real   # real Minibits mint — real sats
+npm run dev        # mock wallet — free  (client :5173, server :8787)
+npm run dev:real   # real Minibits mint — real sats (lands in P3)
+npm test           # vitest (wallet + API)
 ```
+
+Walk around with arrows/WASD. Press `U` in the overworld to unlock a mock token.
 
 ## License
 

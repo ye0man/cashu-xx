@@ -7,11 +7,11 @@ Phased build plan. Scope: ~30-minute game, one city district, 7 named NPCs,
 
 ## P0 — Scaffold
 
-- [ ] Monorepo: `client/`, `server/`, `shared/`, `assets/`, `tools/` (workspaces)
-- [ ] Tooling parity with `cypherpunk-rpg`: Vite, TypeScript, Biome, Vitest
-- [ ] Placeholder tiles + a walking rectangle so movement is testable day one
-- [ ] WalletService interface + `MockWallet`
-- [ ] CI: `typecheck` + `lint` + `test`
+- [x] Monorepo: `client/`, `server/`, `shared/`, `assets/`, `tools/` (workspaces)
+- [x] Tooling parity with `cypherpunk-rpg`: Vite, TypeScript, Biome, Vitest
+- [x] Placeholder tiles + a walking rectangle so movement is testable day one
+- [x] WalletService interface + `MockWallet`
+- [x] CI: `typecheck` + `lint` + `test`
 
 **Exit:** `npm run dev` boots a walkable grey-box world.
 
