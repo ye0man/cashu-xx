@@ -6,6 +6,7 @@ export interface SaveState {
   tileY: number;
   facing: Direction;
   readSigns: string[];
+  flags: string[];
   savedAt: number;
 }
 
@@ -13,6 +14,7 @@ const SAVE_KEY = 'cashu-xx.save.v1';
 
 export const worldState = {
   readSigns: new Set<string>(),
+  flags: new Set<string>(),
 };
 
 export function hasSave(): boolean {
@@ -30,6 +32,7 @@ export function loadSave(): SaveState | null {
       return null;
     }
     worldState.readSigns = new Set(parsed.readSigns ?? []);
+    worldState.flags = new Set(parsed.flags ?? []);
     return parsed;
   } catch {
     return null;
@@ -40,6 +43,7 @@ export function writeSave(position: { mapId: string; tileX: number; tileY: numbe
   const state: SaveState = {
     ...position,
     readSigns: [...worldState.readSigns],
+    flags: [...worldState.flags],
     savedAt: Date.now(),
   };
   localStorage.setItem(SAVE_KEY, JSON.stringify(state));
@@ -48,4 +52,5 @@ export function writeSave(position: { mapId: string; tileX: number; tileY: numbe
 export function clearSave(): void {
   localStorage.removeItem(SAVE_KEY);
   worldState.readSigns = new Set();
+  worldState.flags = new Set();
 }

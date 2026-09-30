@@ -1,9 +1,21 @@
 import * as Phaser from 'phaser';
 import { GAME_CONFIG } from '../data/config';
-import { type DoorDef, type MapDef, MAPS, doorAt, isWalkable, signAt } from '../data/maps';
+import {
+  type DoorDef,
+  type MapDef,
+  MAPS,
+  doorAt,
+  isWalkable,
+  npcAt,
+  pickupAt,
+  signAt,
+} from '../data/maps';
+import { NPCS } from '../data/npcs';
 import { SIGNS } from '../data/signs';
 import { type Direction, DELTAS, GridMover } from '../systems/movement';
+import { hasFlag } from '../systems/quests';
 import { worldState } from '../systems/save';
+import { type StoryContext, talkTo, touchPickup } from '../systems/story';
 import { DialogManager } from '../ui/DialogManager';
 import { MenuManager } from '../ui/MenuManager';
 
@@ -29,6 +41,8 @@ export class WorldScene extends Phaser.Scene {
   private dialog!: DialogManager;
   private menu!: MenuManager;
   private hint!: Phaser.GameObjects.Text;
+  private toast!: Phaser.GameObjects.Text;
+  private toastEvent: Phaser.Time.TimerEvent | null = null;
   private entry: WorldEntry = {};
 
   constructor() {
@@ -75,13 +89,26 @@ export class WorldScene extends Phaser.Scene {
       .setDepth(50);
 
     this.hint = this.add
-      .text(8, GAME_CONFIG.height - 18, 'ARROWS/WASD move   Z read   X menu', {
+      .text(8, GAME_CONFIG.height - 18, 'ARROWS/WASD move   Z talk/read   X menu', {
         fontFamily: 'Courier New',
         fontSize: '11px',
         color: '#b0a8bd',
       })
       .setScrollFactor(0)
       .setDepth(50);
+
+    this.toast = this.add
+      .text(GAME_CONFIG.width / 2, 28, '', {
+        fontFamily: 'Courier New',
+        fontSize: '11px',
+        color: '#f7e7cf',
+        backgroundColor: '#1e1036',
+        padding: { x: 6, y: 4 },
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(80)
+      .setAlpha(0);
 
     this.dialog = new DialogManager(this);
     this.menu = new MenuManager(this, () => ({
@@ -155,6 +182,19 @@ export class WorldScene extends Phaser.Scene {
     for (const spot of this.mapDef.signs) {
       this.add.image(spot.x * tile + tile / 2, spot.y * tile + tile / 2, 'sign');
     }
+
+    for (const spot of this.mapDef.npcs) {
+      const def = NPCS[spot.npcId];
+      if (def) {
+        this.add.sprite(spot.x * tile + tile / 2, (spot.y + 1) * tile, def.texture).setOrigin(0.5, 1);
+      }
+    }
+
+    for (const spot of this.mapDef.pickups) {
+      if (!hasFlag(spot.flag)) {
+        this.add.image(spot.x * tile + tile / 2, spot.y * tile + tile / 2, 'pickup');
+      }
+    }
   }
 
   private onStepComplete(): void {
@@ -178,16 +218,51 @@ export class WorldScene extends Phaser.Scene {
 
   private tryInteract(): void {
     const [dx, dy] = DELTAS[this.mover.facing];
-    const spot = signAt(this.mapDef, this.mover.tileX + dx, this.mover.tileY + dy);
-    if (!spot) {
+    const tx = this.mover.tileX + dx;
+    const ty = this.mover.tileY + dy;
+    const ctx = this.storyContext();
+
+    const pickup = pickupAt(this.mapDef, tx, ty);
+    if (pickup && !hasFlag(pickup.flag)) {
+      touchPickup(pickup, ctx);
       return;
     }
-    const script = SIGNS[spot.signId];
-    if (!script) {
+
+    const npc = npcAt(this.mapDef, tx, ty);
+    if (npc) {
+      const def = NPCS[npc.npcId];
+      if (def?.flavor) {
+        this.dialog.open(def.flavor);
+      } else {
+        talkTo(npc.npcId, ctx);
+      }
       return;
     }
-    worldState.readSigns.add(spot.signId);
-    this.dialog.open(script);
+
+    const spot = signAt(this.mapDef, tx, ty);
+    if (spot) {
+      const script = SIGNS[spot.signId];
+      if (script) {
+        worldState.readSigns.add(spot.signId);
+        this.dialog.open(script);
+      }
+    }
+  }
+
+  private storyContext(): StoryContext {
+    return {
+      scene: this,
+      dialog: this.dialog,
+      showToast: (message: string) => this.showToast(message),
+    };
+  }
+
+  private showToast(message: string): void {
+    this.toast.setText(message).setAlpha(1);
+    this.toastEvent?.remove();
+    this.toastEvent = this.time.delayedCall(2600, () => {
+      this.toast.setAlpha(0);
+    });
   }
 
   private readDirection(): Direction | null {

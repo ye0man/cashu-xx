@@ -27,13 +27,13 @@ Phased build plan. Scope: ~30-minute game, one city district, 7 named NPCs,
 
 ## P2 — Quests & NPCs (mock wallet)
 
-- [ ] Flag/quest engine + journal mirroring CONTRIBUTING.md stages
-- [ ] All 7 named NPCs with dialogue
-- [ ] Act 1: RFC 2119 keyword mini-challenge
-- [ ] Rusty: Swap Puzzle · Coco: Blind Shuffle · Pip: Trace the Proof
-- [ ] DJ Mac: lost record fetch · Kimi: disclosure test (3 scenarios)
-- [ ] 2-of-3 endgame gate + ceremony scene + NUT-31 assignment
-- [ ] Hidden-token pickup logic (4 spots)
+- [x] Flag/quest engine + journal mirroring CONTRIBUTING.md stages
+- [x] All 7 named NPCs with dialogue
+- [x] Act 1: RFC 2119 keyword mini-challenge
+- [x] Rusty: Swap Puzzle · Coco: Blind Shuffle · Pip: Trace the Proof
+- [x] DJ Mac: lost record fetch · Kimi: disclosure test (3 scenarios)
+- [x] 2-of-3 endgame gate + ceremony scene + NUT-31 assignment
+- [x] Hidden-token pickup logic (4 spots)
 
 **Exit:** full game completable with `WALLET=mock`, fake tokens.
 

@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import { MILESTONE_IDS, MILESTONE_LABELS } from '@cashu-xx/shared';
 import { SIGN_TOTAL } from '../data/signs';
+import { getJournal, isMilestoneEarned } from '../systems/quests';
 import { worldState, writeSave } from '../systems/save';
 import type { Direction } from '../systems/movement';
 
@@ -111,21 +112,24 @@ export class MenuManager {
 
   private renderBody(page: MenuPage): string {
     if (page === 'DRAFT') {
+      const journal = getJournal();
+      const mark = (done: boolean): string => (done ? '[x]' : '[ ]');
       return [
         'NUT-XX  a spending condition',
         '',
-        '[ ] Issue opened',
-        '[ ] PR opened',
-        '[ ] Reviews                0/2',
-        '[ ] Labeled: Awaiting Impl PRs',
-        '[ ] Implementation PRs     0/2',
-        '[ ] Merged',
+        `${mark(journal.issueOpened)} Issue opened`,
+        `${mark(journal.prOpened)} PR opened`,
+        `${mark(journal.reviews >= 2)} Reviews                ${journal.reviews}/2`,
+        `${mark(journal.awaitingImpl)} Labeled: Awaiting Impl PRs`,
+        `${mark(journal.impls >= 2)} Implementation PRs     ${journal.impls}/2`,
+        `${mark(journal.merged)} Merged`,
       ].join('\n');
     }
     if (page === 'TOKENS') {
-      const rows = MILESTONE_IDS.map(
-        (id, index) => `${String(index + 1).padStart(2, '0')}  ${MILESTONE_LABELS[id].padEnd(22, '.')} LOCKED`,
-      );
+      const rows = MILESTONE_IDS.map((id, index) => {
+        const state = isMilestoneEarned(id) ? 'CLAIMED' : 'LOCKED';
+        return `${String(index + 1).padStart(2, '0')}  ${MILESTONE_LABELS[id].padEnd(22, '.')} ${state}`;
+      });
       return ['10 TOKENS · 10 SATS EACH', '', ...rows].join('\n');
     }
     if (page === 'SIGNS') {

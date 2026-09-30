@@ -1,3 +1,4 @@
+import type { MilestoneId } from '@cashu-xx/shared';
 import type { Direction } from '../systems/movement';
 
 export interface WallRect {
@@ -22,6 +23,20 @@ export interface SignSpot {
   signId: string;
 }
 
+export interface NpcSpot {
+  x: number;
+  y: number;
+  npcId: string;
+}
+
+export interface PickupSpot {
+  x: number;
+  y: number;
+  id: string;
+  flag: string;
+  milestoneId?: MilestoneId;
+}
+
 export interface MapDef {
   id: string;
   name: string;
@@ -31,6 +46,8 @@ export interface MapDef {
   water: WallRect[];
   doors: DoorDef[];
   signs: SignSpot[];
+  npcs: NpcSpot[];
+  pickups: PickupSpot[];
   spawn: { x: number; y: number };
   outdoor: boolean;
 }
@@ -102,6 +119,14 @@ const OVERWORLD: MapDef = {
     { x: 31, y: 42, targetMap: 'hideout', targetX: 6, targetY: 7, facing: 'up' },
   ],
   signs: OVERWORLD_SIGNS,
+  npcs: [
+    { x: 22, y: 27, npcId: 'civ-doner' },
+    { x: 33, y: 44, npcId: 'civ-commuter' },
+  ],
+  pickups: [
+    { x: 23, y: 13, id: 'hidden-pos', flag: 'hidden-pos', milestoneId: 'hidden-pos' },
+    { x: 35, y: 25, id: 'hidden-tower', flag: 'hidden-tower', milestoneId: 'hidden-tower' },
+  ],
 };
 
 const LAB: MapDef = {
@@ -122,6 +147,8 @@ const LAB: MapDef = {
     { x: 3, y: 0, signId: 'sign-chalkboard' },
     { x: 11, y: 3, signId: 'sign-lab-shelf' },
   ],
+  npcs: [{ x: 5, y: 3, npcId: 'hickory' }],
+  pickups: [],
 };
 
 const CAFE: MapDef = {
@@ -139,6 +166,8 @@ const CAFE: MapDef = {
     { x: 2, y: 0, signId: 'sign-cafe-menu' },
     { x: 11, y: 0, signId: 'sign-cafe-wifi' },
   ],
+  npcs: [],
+  pickups: [{ x: 2, y: 8, id: 'pickup-record', flag: 'record_found' }],
 };
 
 const MINIBITS_HQ: MapDef = {
@@ -156,6 +185,8 @@ const MINIBITS_HQ: MapDef = {
     { x: 2, y: 0, signId: 'sign-hq-motd' },
     { x: 13, y: 0, signId: 'sign-hq-beta' },
   ],
+  npcs: [{ x: 8, y: 2, npcId: 'receptionist' }],
+  pickups: [],
 };
 
 const RUSTY_WORKSHOP: MapDef = {
@@ -172,6 +203,8 @@ const RUSTY_WORKSHOP: MapDef = {
     { x: 3, y: 3, signId: 'sign-workshop-crates' },
     { x: 8, y: 0, signId: 'sign-workshop-swap' },
   ],
+  npcs: [{ x: 4, y: 6, npcId: 'rusty' }],
+  pickups: [],
 };
 
 const PALM_HOUSE: MapDef = {
@@ -188,6 +221,8 @@ const PALM_HOUSE: MapDef = {
     { x: 9, y: 3, signId: 'sign-palm-coconuts' },
     { x: 3, y: 0, signId: 'sign-palm-types' },
   ],
+  npcs: [{ x: 4, y: 4, npcId: 'coco' }],
+  pickups: [],
 };
 
 const LIBRARY: MapDef = {
@@ -208,6 +243,8 @@ const LIBRARY: MapDef = {
     { x: 3, y: 4, signId: 'sign-library-shh' },
     { x: 9, y: 4, signId: 'sign-library-nutshell' },
   ],
+  npcs: [{ x: 6, y: 2, npcId: 'pip' }],
+  pickups: [{ x: 11, y: 8, id: 'hidden-library', flag: 'hidden-library', milestoneId: 'hidden-library' }],
 };
 
 const CLUB: MapDef = {
@@ -224,6 +261,8 @@ const CLUB: MapDef = {
     { x: 9, y: 3, signId: 'sign-club-tonight' },
     { x: 3, y: 0, signId: 'sign-club-cover' },
   ],
+  npcs: [{ x: 7, y: 5, npcId: 'djmac' }],
+  pickups: [{ x: 10, y: 4, id: 'hidden-booth', flag: 'hidden-booth', milestoneId: 'hidden-booth' }],
 };
 
 const HIDEOUT: MapDef = {
@@ -240,6 +279,8 @@ const HIDEOUT: MapDef = {
     { x: 3, y: 3, signId: 'sign-hideout-wanted' },
     { x: 8, y: 0, signId: 'sign-hideout-htlc' },
   ],
+  npcs: [{ x: 7, y: 5, npcId: 'kimi' }],
+  pickups: [],
 };
 
 export const MAPS: Record<string, MapDef> = {
@@ -266,6 +307,14 @@ export function signAt(map: MapDef, x: number, y: number): SignSpot | null {
   return map.signs.find((spot) => spot.x === x && spot.y === y) ?? null;
 }
 
+export function npcAt(map: MapDef, x: number, y: number): NpcSpot | null {
+  return map.npcs.find((spot) => spot.x === x && spot.y === y) ?? null;
+}
+
+export function pickupAt(map: MapDef, x: number, y: number): PickupSpot | null {
+  return map.pickups.find((spot) => spot.x === x && spot.y === y) ?? null;
+}
+
 export function isWalkable(map: MapDef, x: number, y: number): boolean {
   if (x < 0 || y < 0 || x >= map.cols || y >= map.rows) {
     return false;
@@ -276,5 +325,8 @@ export function isWalkable(map: MapDef, x: number, y: number): boolean {
   if (map.walls.some((rect) => inRect(rect, x, y))) {
     return false;
   }
-  return !map.water.some((rect) => inRect(rect, x, y));
+  if (map.water.some((rect) => inRect(rect, x, y))) {
+    return false;
+  }
+  return npcAt(map, x, y) === null && pickupAt(map, x, y) === null;
 }

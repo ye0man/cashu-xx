@@ -54,6 +54,12 @@ export class DialogManager {
     return this.script !== null;
   }
 
+  openAsync(script: DialogueScript): Promise<string | null> {
+    return new Promise((resolve) => {
+      this.open(script, resolve);
+    });
+  }
+
   open(script: DialogueScript, onDone?: (choiceId: string | null) => void): void {
     this.script = script;
     this.lineIndex = 0;

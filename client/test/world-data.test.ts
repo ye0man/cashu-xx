@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { MILESTONE_IDS } from '@cashu-xx/shared';
 import { MAPS, doorAt, isWalkable, type MapDef } from '../src/data/maps';
+import { NPCS } from '../src/data/npcs';
 import { SIGNS, SIGN_TOTAL } from '../src/data/signs';
 
 const allMaps = (): MapDef[] => Object.values(MAPS);
@@ -72,6 +74,29 @@ describe('world data integrity', () => {
     }
   });
 
+  it('every npc is defined and placed on their home map', () => {
+    for (const map of allMaps()) {
+      for (const spot of map.npcs) {
+        const def = NPCS[spot.npcId];
+        expect(def, `${map.id} references missing npc ${spot.npcId}`).toBeDefined();
+        expect(def.mapId).toBe(map.id);
+      }
+    }
+    expect(Object.keys(NPCS).length).toBeGreaterThanOrEqual(7);
+  });
+
+  it('every pickup has a valid flag and milestone id', () => {
+    const milestones: string[] = [...MILESTONE_IDS];
+    for (const map of allMaps()) {
+      for (const spot of map.pickups) {
+        expect(spot.flag.length).toBeGreaterThan(0);
+        if (spot.milestoneId) {
+          expect(milestones).toContain(spot.milestoneId);
+        }
+      }
+    }
+  });
+
   it('every door and sign approach is reachable from spawn (flood fill)', () => {
     for (const map of allMaps()) {
       const seen = new Set<string>();
@@ -104,6 +129,20 @@ describe('world data integrity', () => {
         expect(
           seen.has(`${sx},${sy}`),
           `${map.id} sign ${spot.signId} has no reachable approach tile`,
+        ).toBe(true);
+      }
+      for (const spot of map.npcs) {
+        const [nx, ny] = approachTile(map, spot.x, spot.y);
+        expect(
+          seen.has(`${nx},${ny}`),
+          `${map.id} npc ${spot.npcId} has no reachable approach tile`,
+        ).toBe(true);
+      }
+      for (const spot of map.pickups) {
+        const [px, py] = approachTile(map, spot.x, spot.y);
+        expect(
+          seen.has(`${px},${py}`),
+          `${map.id} pickup ${spot.id} has no reachable approach tile`,
         ).toBe(true);
       }
     }
