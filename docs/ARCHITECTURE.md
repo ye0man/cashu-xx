@@ -196,28 +196,41 @@ re-displays QRs on demand — redemption UI as game content.
 - **Save:** localStorage `{ position, mapId, flags, journal, claimCode }`,
   auto-saved on every milestone. The claim code is the cross-device source of
   truth for tokens.
-- **Maps:** code-defined grey-box data (`client/src/data/maps.ts` — walls, water, doors, sign spots) through P1; Tiled-authored tilemaps replace the renderer in P4 without changing `MapDef` consumers.
+- **Maps:** code-defined data (`client/src/data/maps.ts` — walls, water, doors, sign spots, decor). Wall rects carry a render `kind` (`trees`, `building`, `furniture`, `wall`, `post`) plus roof/facade/furniture styles; `decor` rects add walkable grass, flowers and the bridge. Kinds only affect drawing — every wall rect still blocks movement, so `isWalkable`/`doorAt` consumers are unchanged.
 
-## 10. Art & audio pipeline (tools/)
+## 10. Art & audio pipeline
 
-Generation runs through the video-studio MCP family (`studio.yaml` marks this repo as a
-studio root; keys live in the gitignored `.env`). Raw generations land in `assets/gen/`
-with full provenance in `assets/manifest.json` (prompts, seeds, costs, licenses).
+**Visual art is hand-authored pixel data**, not generated images (v2 face-lift, inspired
+by Pokémon Crystal's New Bark Town). It lives in `client/src/art/` and has no DOM
+dependency:
 
-- `tools/src/image.ts` — PNG load/crop/downscale/palette-snap/compose helpers (pngjs).
-- `tools/src/sheet-assemble.ts` — CLI: `player <down> <up> <side> <out>` (6-frame sheet
-  with 1px bob row), `npc <in> <out>` (16×24), `tile/prop <in> <out>` (16×16). Each run
-  crops to aspect, nearest-neighbor downscales, and snaps to the 16-color palette.
-- `tools/src/palette-qa.ts` — CLI: reports on-palette ratio per PNG, exits 1 below
-  tolerance (`PALETTE_TOLERANCE`, default 10% off). All shipped assets pass at 100%.
-- Pipeline: fal (JPEG bytes) → ffmpeg → `assets/work/*.png` → sheet-assemble →
-  `client/public/assets/{sprites,tiles}/` → palette-qa.
+- `bitmap.ts` — tiny RGBA `Bitmap` + `ascii(rows, legend)`: art is drawn as rows of
+  characters; ragged rows or unknown characters throw (and fail `test/art.test.ts`).
+- `palette.ts` — the soft GBC world palette (pale ground, fresh greens, lavender water)
+  with Cashu purple as the accent; six roof colourways.
+- `tiles.ts` — 16×16 tiles: calm dotted ground, grass, flowers, trees, water with banks,
+  bridge, striped roofs, facades with windows, doors, floors, back walls, furniture.
+  Texture is always regular, never random, so big areas stay clean.
+- `sprites.ts` — XX (drawn from the Cashu logo: cashew crescent, left-edge shading, knob
+  highlight, pixel shades), 3 facings × 3 walk poses; 9 NPCs; sign/poster/note/pickup
+  props. All transparent with dark outlines.
+- `compose.ts` — `renderMap(map)` bakes a whole map into one bitmap (buildings split into
+  roof + facade rows, water banks from neighbours, signs as posts/posters/notes).
+- `textures.ts` — uploads bitmaps to Phaser as canvas textures at boot; maps are baked
+  once per session. NPCs, pickups and the player stay separate sprites.
+- `client/scripts/preview-art.ts` — `npx tsx client/scripts/preview-art.ts <outDir>`
+  writes 8× sprite sheets and full map renders for review without running the game.
+- The canvas scales by whole numbers only (`main.ts`), with `roundPixels`, so every art
+  pixel stays square and crisp.
+
+The earlier AI-image pipeline (`tools/src/image.ts`, `sheet-assemble.ts`, `palette-qa.ts`;
+raw generations in `assets/gen/`, provenance in `assets/manifest.json`) is kept for
+promo/key art only.
+
 - Audio: Stable Audio 2.5 chiptune prompts (30s loops) + 2 generated jingles → ffmpeg
   transcode to mp3; Freesound CC0 for menu/door SFX. All in `client/public/assets/audio/`.
 - Night mode is a multiply-blend overlay (`systems/lighting.ts`) rather than second
   tileset variants; `N` toggles it on outdoor maps, hideout is always night.
-- `BootScene` preloads everything and falls back to generated placeholder textures
-  per missing key, so the game stays playable without any assets.
 
 ## 11. Dev workflow
 

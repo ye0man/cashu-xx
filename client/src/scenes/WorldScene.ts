@@ -1,4 +1,5 @@
 import * as Phaser from 'phaser';
+import { mapTextureKey } from '../art/textures';
 import { GAME_CONFIG } from '../data/config';
 import {
   type DoorDef,
@@ -43,14 +44,16 @@ const MAP_THEMES: Record<string, ThemeKey> = {
   hideout: 'hideout',
 };
 
-const FRAME_INDEX: Record<Direction, number> = {
+const FACING_ROW: Record<Direction, number> = {
   down: 0,
   up: 1,
   right: 2,
   left: 2,
 };
 
-const WALK_BOB_MS = 160;
+/** stand → stepA → stand → stepB, one phase per quarter tile of travel time */
+const WALK_CYCLE = [0, 1, 0, 2];
+const WALK_PHASE_MS = 120;
 
 export class WorldScene extends Phaser.Scene {
   private mapDef!: MapDef;
@@ -70,6 +73,7 @@ export class WorldScene extends Phaser.Scene {
   private toast!: Phaser.GameObjects.Text;
   private toastEvent: Phaser.Time.TimerEvent | null = null;
   private walkClock = 0;
+  private pickupSprites: { flag: string; sprite: Phaser.GameObjects.Image }[] = [];
   private nightOn = false;
   private entry: WorldEntry = {};
 
@@ -110,23 +114,32 @@ export class WorldScene extends Phaser.Scene {
       .sprite(this.mover.pixelX, this.mover.pixelY, 'player', 0)
       .setOrigin(0.5, 1);
     this.applyPlayerFrame();
-    this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
+    // Rooms smaller than the screen are centred instead of hugging the top-left.
+    const viewW = GAME_CONFIG.width;
+    const viewH = GAME_CONFIG.height;
+    const boundsX = worldWidth < viewW ? Math.floor((worldWidth - viewW) / 2) : 0;
+    const boundsY = worldHeight < viewH ? Math.floor((worldHeight - viewH) / 2) : 0;
+    this.cameras.main.setBounds(boundsX, boundsY, Math.max(worldWidth, viewW), Math.max(worldHeight, viewH));
     this.cameras.main.startFollow(this.player, true, 0.2, 0.2);
 
     this.add
-      .text(8, 6, this.mapDef.name, {
+      .text(6, 6, this.mapDef.name, {
         fontFamily: 'Courier New',
         fontSize: '11px',
-        color: '#e8c9a0',
+        color: '#f7e7cf',
+        backgroundColor: '#2a1f3d',
+        padding: { x: 5, y: 3 },
       })
       .setScrollFactor(0)
       .setDepth(50);
 
     this.hint = this.add
-      .text(8, GAME_CONFIG.height - 18, 'ARROWS/WASD move   Z talk/read   X menu   N night', {
+      .text(6, GAME_CONFIG.height - 21, 'ARROWS/WASD move   Z talk/read   X menu   N night', {
         fontFamily: 'Courier New',
         fontSize: '11px',
-        color: '#b0a8bd',
+        color: '#e0d8ec',
+        backgroundColor: '#2a1f3dcc',
+        padding: { x: 5, y: 3 },
       })
       .setScrollFactor(0)
       .setDepth(50);
@@ -171,6 +184,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    this.hideCollectedPickups();
     this.dialog.update(delta);
     this.menu.update();
     this.qrPanel.update();
@@ -214,45 +228,43 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private applyPlayerFrame(): void {
-    const bob = this.mover.moving && this.walkClock % (WALK_BOB_MS * 2) < WALK_BOB_MS;
-    const frame = FRAME_INDEX[this.mover.facing] + (bob ? 3 : 0);
-    if (this.player.texture.frameTotal > 3) {
-      this.player.setFrame(frame);
-    }
+    const phase = this.mover.moving ? WALK_CYCLE[Math.floor(this.walkClock / WALK_PHASE_MS) % 4] : 0;
+    this.player.setFrame(FACING_ROW[this.mover.facing] * 3 + phase);
     this.player.setFlipX(this.mover.facing === 'left');
   }
 
   private drawWorld(): void {
     const { tile } = GAME_CONFIG;
-    this.add
-      .tileSprite(0, 0, this.mapDef.cols * tile, this.mapDef.rows * tile, 'tile-floor')
-      .setOrigin(0);
+    this.add.image(0, 0, mapTextureKey(this.textures, this.mapDef)).setOrigin(0);
 
-    for (const rect of this.mapDef.water) {
-      this.add
-        .tileSprite(rect.x * tile, rect.y * tile, rect.w * tile, rect.h * tile, 'tile-water')
-        .setOrigin(0);
-    }
-    for (const rect of this.mapDef.walls) {
-      this.add
-        .tileSprite(rect.x * tile, rect.y * tile, rect.w * tile, rect.h * tile, 'tile-wall')
-        .setOrigin(0);
-    }
-    for (const door of this.mapDef.doors) {
-      this.add.image(door.x * tile + tile / 2, door.y * tile + tile / 2, 'tile-door');
-    }
-    for (const spot of this.mapDef.signs) {
-      this.add.image(spot.x * tile + tile / 2, spot.y * tile + tile / 2, 'sign');
-    }
     for (const spot of this.mapDef.npcs) {
       const def = NPCS[spot.npcId];
       if (def) {
         this.add.sprite(spot.x * tile + tile / 2, (spot.y + 1) * tile, def.texture).setOrigin(0.5, 1);
       }
     }
+    this.pickupSprites = [];
     for (const spot of this.mapDef.pickups) {
-      if (!hasFlag(spot.flag)) {
-        this.add.image(spot.x * tile + tile / 2, spot.y * tile + tile / 2, 'pickup');
+      if (hasFlag(spot.flag)) {
+        continue;
+      }
+      const sprite = this.add.image(spot.x * tile + tile / 2, spot.y * tile + tile / 2, 'pickup');
+      this.tweens.add({
+        targets: sprite,
+        y: sprite.y - 2,
+        duration: 700,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+      this.pickupSprites.push({ flag: spot.flag, sprite });
+    }
+  }
+
+  private hideCollectedPickups(): void {
+    for (const entry of this.pickupSprites) {
+      if (entry.sprite.visible && hasFlag(entry.flag)) {
+        entry.sprite.setVisible(false);
       }
     }
   }

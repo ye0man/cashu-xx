@@ -18,7 +18,7 @@ export class TitleScene extends Phaser.Scene {
     this.started = false;
 
     this.add
-      .text(240, 72, 'CASHU-XX', {
+      .text(240, 44, 'CASHU-XX', {
         fontFamily: 'Courier New',
         fontSize: '40px',
         color: '#e8c9a0',
@@ -26,23 +26,28 @@ export class TitleScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.add
-      .text(240, 110, 'a placeholder nut on the road to merge', {
+      .text(240, 76, 'a placeholder nut on the road to merge', {
         fontFamily: 'Courier New',
         fontSize: '12px',
         color: '#9d5fe0',
       })
       .setOrigin(0.5);
 
+    // XX himself, drawn from the Cashu logo, on a purple spotlight.
+    this.add.circle(240, 158, 50, 0x7b2fbe);
+    const hero = this.add.image(240, 158, 'player', 0).setScale(3).setOrigin(0.5);
+    this.tweens.add({ targets: hero, y: 154, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
     const hint = this.add
-      .text(240, 148, 'PRESS ENTER TO PLAY — 100 SATS', {
+      .text(240, 232, 'PRESS ENTER TO PLAY — 100 SATS', {
         fontFamily: 'Courier New',
         fontSize: '13px',
-        color: '#b0a8bd',
+        color: '#e0d8ec',
       })
       .setOrigin(0.5);
     this.tweens.add({ targets: hint, alpha: 0.35, duration: 700, yoyo: true, repeat: -1 });
 
-    let nextY = 172;
+    let nextY = 256;
     if (hasSave()) {
       this.add
         .text(240, nextY, 'PRESS C TO CONTINUE', {
@@ -57,7 +62,7 @@ export class TitleScene extends Phaser.Scene {
       .text(240, nextY, 'PRESS R TO RECOVER WITH TRAINER ID', {
         fontFamily: 'Courier New',
         fontSize: '12px',
-        color: '#6b6478',
+        color: '#8a8298',
       })
       .setOrigin(0.5);
 

@@ -1,11 +1,31 @@
 import type { MilestoneId } from '@cashu-xx/shared';
+import type { RoofStyle } from '../art/palette';
+import type { FacadeStyle, FloorStyle, FurnitureStyle, WallStyle } from '../art/tiles';
 import type { Direction } from '../systems/movement';
 
-export interface WallRect {
+export interface Rect {
   x: number;
   y: number;
   w: number;
   h: number;
+}
+
+/**
+ * How a solid rect is drawn. Defaults: `building` outdoors, `furniture`
+ * indoors. Kinds only affect rendering — every wall rect blocks movement.
+ */
+export type WallKind = 'trees' | 'building' | 'furniture' | 'wall' | 'post';
+
+export interface WallRect extends Rect {
+  kind?: WallKind;
+  roof?: RoofStyle;
+  facade?: FacadeStyle;
+  furniture?: FurnitureStyle;
+}
+
+/** Walkable, purely decorative ground cover. */
+export interface DecorRect extends Rect {
+  kind: 'grass' | 'flowers' | 'bridge';
 }
 
 export interface DoorDef {
@@ -50,19 +70,22 @@ export interface MapDef {
   pickups: PickupSpot[];
   spawn: { x: number; y: number };
   outdoor: boolean;
+  decor?: DecorRect[];
+  floor?: FloorStyle;
+  wallStyle?: WallStyle;
 }
 
-function borderWalls(cols: number, rows: number, t: number): WallRect[] {
+function borderWalls(cols: number, rows: number, t: number, kind: WallKind): WallRect[] {
   return [
-    { x: 0, y: 0, w: cols, h: t },
-    { x: 0, y: rows - t, w: cols, h: t },
-    { x: 0, y: 0, w: t, h: rows },
-    { x: cols - t, y: 0, w: t, h: rows },
+    { x: 0, y: 0, w: cols, h: t, kind },
+    { x: 0, y: rows - t, w: cols, h: t, kind },
+    { x: 0, y: 0, w: t, h: rows, kind },
+    { x: cols - t, y: 0, w: t, h: rows, kind },
   ];
 }
 
 function signPosts(signs: SignSpot[]): WallRect[] {
-  return signs.map((spot) => ({ x: spot.x, y: spot.y, w: 1, h: 1 }));
+  return signs.map((spot) => ({ x: spot.x, y: spot.y, w: 1, h: 1, kind: 'post' as const }));
 }
 
 const OVERWORLD_SIGNS: SignSpot[] = [
@@ -94,19 +117,41 @@ const OVERWORLD: MapDef = {
     { x: 34, y: 6, w: 28, h: 4 },
   ],
   walls: [
-    ...borderWalls(64, 48, 2),
-    { x: 6, y: 14, w: 9, h: 8 },
-    { x: 18, y: 14, w: 9, h: 8 },
-    { x: 44, y: 12, w: 12, h: 11 },
-    { x: 5, y: 2, w: 9, h: 2 },
-    { x: 18, y: 2, w: 9, h: 2 },
-    { x: 44, y: 30, w: 10, h: 8 },
-    { x: 12, y: 34, w: 9, h: 8 },
-    { x: 28, y: 38, w: 8, h: 5 },
-    { x: 34, y: 26, w: 4, h: 4 },
-    { x: 5, y: 29, w: 8, h: 5 },
-    { x: 54, y: 28, w: 7, h: 6 },
+    ...borderWalls(64, 48, 2, 'trees'),
+    { x: 6, y: 17, w: 9, h: 5, roof: 'green', facade: 'cream' }, // lab
+    { x: 18, y: 17, w: 9, h: 5, roof: 'red', facade: 'cream' }, // cafe
+    { x: 44, y: 16, w: 12, h: 7, roof: 'purple', facade: 'concrete' }, // minibits hq
+    { x: 5, y: 2, w: 9, h: 2, roof: 'grey', facade: 'brick' }, // rusty's workshop
+    { x: 18, y: 2, w: 9, h: 2, roof: 'glass', facade: 'glass' }, // palm house
+    { x: 44, y: 33, w: 10, h: 5, roof: 'blue', facade: 'brick' }, // library
+    { x: 12, y: 37, w: 9, h: 5, roof: 'purple', facade: 'club' }, // club
+    { x: 28, y: 38, w: 8, h: 5, roof: 'grey', facade: 'concrete' }, // u-bahn / hideout
+    { x: 34, y: 26, w: 4, h: 4, roof: 'grey', facade: 'concrete' }, // nusssehturm
+    { x: 5, y: 29, w: 8, h: 5, kind: 'trees' }, // grove
+    { x: 54, y: 30, w: 7, h: 4, roof: 'blue', facade: 'cream' }, // flats
     ...signPosts(OVERWORLD_SIGNS),
+  ],
+  decor: [
+    { x: 2, y: 10, w: 28, h: 2, kind: 'grass' },
+    { x: 34, y: 10, w: 28, h: 2, kind: 'grass' },
+    { x: 30, y: 6, w: 4, h: 4, kind: 'bridge' },
+    { x: 4, y: 10, w: 2, h: 1, kind: 'flowers' },
+    { x: 56, y: 10, w: 3, h: 1, kind: 'flowers' },
+    { x: 5, y: 15, w: 11, h: 2, kind: 'grass' },
+    { x: 17, y: 15, w: 11, h: 2, kind: 'grass' },
+    { x: 13, y: 15, w: 2, h: 1, kind: 'flowers' },
+    { x: 43, y: 13, w: 14, h: 3, kind: 'grass' },
+    { x: 45, y: 14, w: 2, h: 1, kind: 'flowers' },
+    { x: 53, y: 14, w: 2, h: 1, kind: 'flowers' },
+    { x: 33, y: 25, w: 6, h: 6, kind: 'grass' },
+    { x: 43, y: 31, w: 19, h: 2, kind: 'grass' },
+    { x: 12, y: 35, w: 9, h: 2, kind: 'grass' },
+    { x: 2, y: 38, w: 8, h: 8, kind: 'grass' },
+    { x: 3, y: 40, w: 3, h: 2, kind: 'flowers' },
+    { x: 56, y: 38, w: 6, h: 8, kind: 'grass' },
+    { x: 58, y: 42, w: 2, h: 2, kind: 'flowers' },
+    { x: 4, y: 28, w: 10, h: 1, kind: 'grass' },
+    { x: 4, y: 34, w: 10, h: 1, kind: 'grass' },
   ],
   doors: [
     { x: 10, y: 21, targetMap: 'lab', targetX: 7, targetY: 9, facing: 'up' },
@@ -135,12 +180,14 @@ const LAB: MapDef = {
   cols: 14,
   rows: 11,
   outdoor: false,
+  floor: 'tile',
+  wallStyle: 'paper',
   spawn: { x: 7, y: 9 },
   water: [],
   walls: [
-    ...borderWalls(14, 11, 1),
-    { x: 4, y: 4, w: 4, h: 2 },
-    { x: 10, y: 2, w: 3, h: 2 },
+    ...borderWalls(14, 11, 1, 'wall'),
+    { x: 4, y: 4, w: 4, h: 2, furniture: 'bench' },
+    { x: 10, y: 2, w: 3, h: 2, furniture: 'shelf' },
   ],
   doors: [{ x: 7, y: 10, targetMap: 'nussstadt', targetX: 10, targetY: 22, facing: 'down' }],
   signs: [
@@ -157,9 +204,11 @@ const CAFE: MapDef = {
   cols: 14,
   rows: 11,
   outdoor: false,
+  floor: 'wood',
+  wallStyle: 'paper',
   spawn: { x: 7, y: 9 },
   water: [],
-  walls: [...borderWalls(14, 11, 1), { x: 2, y: 3, w: 10, h: 2 }],
+  walls: [...borderWalls(14, 11, 1, 'wall'), { x: 2, y: 3, w: 10, h: 2, furniture: 'counter' }],
   doors: [{ x: 7, y: 10, targetMap: 'nussstadt', targetX: 22, targetY: 22, facing: 'down' }],
   signs: [
     { x: 9, y: 4, signId: 'sign-pos' },
@@ -176,9 +225,11 @@ const MINIBITS_HQ: MapDef = {
   cols: 16,
   rows: 12,
   outdoor: false,
+  floor: 'tile',
+  wallStyle: 'concrete',
   spawn: { x: 8, y: 10 },
   water: [],
-  walls: [...borderWalls(16, 12, 1), { x: 4, y: 3, w: 8, h: 2 }],
+  walls: [...borderWalls(16, 12, 1, 'wall'), { x: 4, y: 3, w: 8, h: 2, furniture: 'desk' }],
   doors: [{ x: 8, y: 11, targetMap: 'nussstadt', targetX: 49, targetY: 23, facing: 'down' }],
   signs: [
     { x: 7, y: 4, signId: 'sign-hq-reception' },
@@ -195,9 +246,11 @@ const RUSTY_WORKSHOP: MapDef = {
   cols: 13,
   rows: 10,
   outdoor: false,
+  floor: 'wood',
+  wallStyle: 'concrete',
   spawn: { x: 6, y: 8 },
   water: [],
-  walls: [...borderWalls(13, 10, 1), { x: 2, y: 2, w: 3, h: 2 }],
+  walls: [...borderWalls(13, 10, 1, 'wall'), { x: 2, y: 2, w: 3, h: 2, furniture: 'crates' }],
   doors: [{ x: 6, y: 9, targetMap: 'nussstadt', targetX: 9, targetY: 4, facing: 'down' }],
   signs: [
     { x: 3, y: 3, signId: 'sign-workshop-crates' },
@@ -213,9 +266,11 @@ const PALM_HOUSE: MapDef = {
   cols: 13,
   rows: 10,
   outdoor: false,
+  floor: 'tile',
+  wallStyle: 'paper',
   spawn: { x: 6, y: 8 },
   water: [],
-  walls: [...borderWalls(13, 10, 1), { x: 8, y: 2, w: 3, h: 2 }],
+  walls: [...borderWalls(13, 10, 1, 'wall'), { x: 8, y: 2, w: 3, h: 2, furniture: 'planter' }],
   doors: [{ x: 6, y: 9, targetMap: 'nussstadt', targetX: 22, targetY: 4, facing: 'down' }],
   signs: [
     { x: 9, y: 3, signId: 'sign-palm-coconuts' },
@@ -231,12 +286,14 @@ const LIBRARY: MapDef = {
   cols: 14,
   rows: 11,
   outdoor: false,
+  floor: 'wood',
+  wallStyle: 'paper',
   spawn: { x: 7, y: 9 },
   water: [],
   walls: [
-    ...borderWalls(14, 11, 1),
-    { x: 2, y: 3, w: 4, h: 2 },
-    { x: 8, y: 3, w: 4, h: 2 },
+    ...borderWalls(14, 11, 1, 'wall'),
+    { x: 2, y: 3, w: 4, h: 2, furniture: 'shelf' },
+    { x: 8, y: 3, w: 4, h: 2, furniture: 'shelf' },
   ],
   doors: [{ x: 7, y: 10, targetMap: 'nussstadt', targetX: 48, targetY: 38, facing: 'down' }],
   signs: [
@@ -253,9 +310,11 @@ const CLUB: MapDef = {
   cols: 13,
   rows: 10,
   outdoor: false,
+  floor: 'carpet',
+  wallStyle: 'club',
   spawn: { x: 6, y: 8 },
   water: [],
-  walls: [...borderWalls(13, 10, 1), { x: 8, y: 2, w: 3, h: 2 }],
+  walls: [...borderWalls(13, 10, 1, 'wall'), { x: 8, y: 2, w: 3, h: 2, furniture: 'booth' }],
   doors: [{ x: 6, y: 9, targetMap: 'nussstadt', targetX: 16, targetY: 42, facing: 'down' }],
   signs: [
     { x: 9, y: 3, signId: 'sign-club-tonight' },
@@ -271,9 +330,11 @@ const HIDEOUT: MapDef = {
   cols: 12,
   rows: 9,
   outdoor: false,
+  floor: 'dark',
+  wallStyle: 'dark',
   spawn: { x: 6, y: 7 },
   water: [],
-  walls: [...borderWalls(12, 9, 1), { x: 2, y: 2, w: 3, h: 2 }],
+  walls: [...borderWalls(12, 9, 1, 'wall'), { x: 2, y: 2, w: 3, h: 2, furniture: 'crates' }],
   doors: [{ x: 6, y: 8, targetMap: 'nussstadt', targetX: 31, targetY: 43, facing: 'down' }],
   signs: [
     { x: 3, y: 3, signId: 'sign-hideout-wanted' },
@@ -295,7 +356,7 @@ export const MAPS: Record<string, MapDef> = {
   hideout: HIDEOUT,
 };
 
-export function inRect(rect: WallRect, x: number, y: number): boolean {
+export function inRect(rect: Rect, x: number, y: number): boolean {
   return x >= rect.x && x < rect.x + rect.w && y >= rect.y && y < rect.y + rect.h;
 }
 

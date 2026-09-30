@@ -23,9 +23,9 @@ milestones and found hidden around the city. Scan them with any cashu wallet.
 | --- | --- |
 | <img src="docs/screenshots/2-payment.png" alt="Payment screen with a lightning invoice QR and Trainer ID" width="360" /> | <img src="docs/screenshots/3-overworld.png" alt="The hero walking the cobblestone streets of Nussstadt" width="360" /> |
 
-| Reading the signs | *(more in [docs/screenshots/](docs/screenshots/))* |
+| Reading the signs | Hickory's lab |
 | --- | --- |
-| <img src="docs/screenshots/4-dialog.png" alt="A sign dialog: a proof is a promise from the mint" width="360" /> | <img src="docs/screenshots/1-title.png" alt="Title screen" width="360" /> |
+| <img src="docs/screenshots/4-dialog.png" alt="A sign dialog: a proof is a promise from the mint" width="360" /> | <img src="docs/screenshots/5-lab.png" alt="Professor Hickory's lab interior" width="360" /> |
 
 Promo clip: [docs/media/promo.mp4](docs/media/promo.mp4)
 
@@ -58,7 +58,7 @@ small amounts only).
 
 - **Client:** Phaser 4 · TypeScript · Vite
 - **Server:** Node · Fastify · SQLite · [`@cashu/coco-core`](https://github.com/cashubtc/coco) + `@cashu/coco-sqlite`
-- **Art:** AI-generated, palette-snapped GBC pixel art (pipeline in [`tools/`](tools/))
+- **Art:** hand-authored GBC pixel art as code ([`client/src/art/`](client/src/art/)), inspired by New Bark Town; XX is drawn from the Cashu logo
 - **Audio:** 8-bit generated tracks + SFX
 
 ## Development
@@ -79,8 +79,9 @@ sound in the menu's SETTINGS page.
 ## Credits & licenses
 
 - Game design, code, and pixel pipeline: this repo (MIT or TBD).
-- Art generated with Flux (fal.ai) and normalized to a 16-color palette; music
-  and jingles generated with Stable Audio 2.5; all generation provenance in
+- In-game pixel art is hand-authored in code (`client/src/art/`). Key art and the promo
+  clip were generated via fal.ai; music and jingles generated with
+  Stable Audio 2.5; all generation provenance in
   [`assets/manifest.json`](assets/manifest.json).
 - SFX "Videogame Menu Select" by Fupicat and "Wooden door open-close" by Ryding
   ([Freesound](https://freesound.org)) — both **CC0 1.0**.

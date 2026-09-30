@@ -1,6 +1,6 @@
 import * as Phaser from 'phaser';
 
-const NIGHT_TINT = 0x4a4a7a;
+const NIGHT_TINT = 0x7070b0;
 
 export class NightOverlay {
   private readonly rect: Phaser.GameObjects.Rectangle;
