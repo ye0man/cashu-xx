@@ -3,7 +3,7 @@ import type { MapDef } from '../data/maps';
 import type { Bitmap } from './bitmap';
 import { strip } from './bitmap';
 import { renderMap } from './compose';
-import { heroFrames, npcSprites, propSprites, SPRITE_H, SPRITE_W } from './sprites';
+import { heroFrames, logoArt, npcSprites, propSprites, SPRITE_H, SPRITE_W } from './sprites';
 
 function toCanvas(bitmap: Bitmap): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
@@ -41,6 +41,7 @@ export function registerArt(textures: Phaser.Textures.TextureManager): void {
   for (const [key, bitmap] of Object.entries(propSprites())) {
     addTexture(textures, key, bitmap);
   }
+  addTexture(textures, 'logo', logoArt());
 }
 
 /** Bakes a map once and returns its texture key (cached for the session). */

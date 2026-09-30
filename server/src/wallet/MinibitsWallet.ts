@@ -54,7 +54,12 @@ export class MinibitsWallet extends BaseWallet {
 
   private manager(): Promise<Manager> {
     if (!this.managerPromise) {
-      this.managerPromise = this.boot();
+      // Never cache a failed boot: a single network blip to the mint must not
+      // wedge every later request until the server restarts.
+      this.managerPromise = this.boot().catch((err: unknown) => {
+        this.managerPromise = null;
+        throw err;
+      });
     }
     return this.managerPromise;
   }

@@ -12,7 +12,7 @@ import type { WalletService } from './wallet/WalletService';
 export interface BuildAppOptions {
   wallet: WalletService;
   clientOrigin: string;
-  getMintInfo?: () => MintInfoResponse;
+  getMintInfo?: () => MintInfoResponse | Promise<MintInfoResponse>;
   logger?: boolean;
 }
 

@@ -22,80 +22,94 @@ function character(rows: readonly string[], legend: Legend, name: string): Bitma
 // ---------------------------------------------------------------- hero (XX)
 
 /**
- * XX is the Cashu logo: a cashew crescent lit from the right, darker bands down
- * the left edge, a small notch above the knob, a cream highlight on the knob
- * and the pixel "deal with it" shades. Outline in warm brown so the tan body
- * holds its shape on the pale ground.
+ * XX *is* the Cashu logo. `LOGO_NUT` is the logo's own pixel grid (sampled from
+ * the cashubtc avatar: 14×16 cells), colours included — a crescent with the
+ * deep inner curve on the right, dark bands down the left edge, a light rim, and
+ * the bright highlight on the toe. Only the shades differ by resolution: the
+ * logo draws them on a half-cell grid, so the sprite gets a 1:1 approximation
+ * and the title screen gets the full half-cell version (`logoArt`).
  */
-const HERO_LEGEND: Legend = {
-  o: 0x5a3a22,
-  L: 0xecd6b0,
-  M: 0xdcbf94,
-  D: 0xc8a473,
-  S: 0xae8657,
-  W: 0xfaf4e6,
-  K: 0x141018,
-  w: 0xfcfcfc,
+const LOGO_LEGEND: Legend = {
+  b: 0xba9663,
+  c: 0xe3d3b5,
+  d: 0xb08c5b,
+  e: 0xc6a980,
+  f: 0xdcc099,
+  g: 0xc3a67d,
+  W: 0xf8f8f0,
+  K: 0x100c14,
+  w: 0xffffff,
 };
 
-const HERO_BODY = [
-  '....oooooooo....',
-  '...oMLLLLLLLoo..',
-  '..oDMLLLLLLLLLo.',
-  '..oDMLLLLLLLLLo.',
-  '.oSDMLLLLLLLLLo.',
-  '.oSDMLLLLLLLLLo.',
-  '.oSDMLLLLLLLLLo.',
-  '.oSDMLLLLLLLLLo.',
-  '.oSDMLLLLLLLLLo.',
-  '.oSDMLLLLLLLLLo.',
-  '.oSDMMLLLLLLLLo.',
-  '.oSDMMLLLLLLLo..',
-  '.oSDDMLLLLLLo...',
-  '.oSDDMMLLLLLo...',
-  '.oSDDMMLLLLWWoo.',
-  '.oSSDDMMLLLLLLLo',
-  '.oSSDDMMMLLLLLLo',
-  '..oSSDDMMMMLLLo.',
-  '..oSSSDDDMMMMo..',
-  '...ooSSSDDDoo...',
-  '.....oooooo.....',
+const LOGO_NUT = [
+  '..bbccccc.....',
+  '.deefffffc....',
+  'dgeffffffc....',
+  'dgeffffffc....',
+  'dgefffffc.....',
+  'dgefffffc.....', // behind the shades
+  'dgefffffc.....', // behind the shades
+  'dgefffffc.....',
+  'dgeeffffc.....',
+  'dgeefffffccc..',
+  'dgeeeeffffWWc.',
+  '.dgeeeeffffffc',
+  '.dgeeeeefffffc',
+  '..dgeeeeeeeeec',
+  '...dggeeeeeeb.',
+  '....ddbbbbbb..',
+];
+const SHADES_ROW = 5;
+
+const SHADES_FRONT = ['KKKKKKKKKKK...', 'KwKKK.KwKKK...', '.KwK...KwK....'];
+const SHADES_SIDE = ['..KKKKKKKKK...', '......KwKKK...', '.......KwK....'];
+
+/** Half-cell shades from the logo, drawn over the 2× nut on the title screen. */
+const LOGO_SHADES_HI = [
+  'KKKKKKKKKKKKKKKKKKKK',
+  'KwKwKKKKK..KwKwKKKKK',
+  '.KwKKKKKK..KKwKKKKK.',
+  '..KKKKKK....KKKKKK..',
 ];
 
-const SHADES_FRONT = ['KKKKKKKKKKKKKKK.', '.KwKwKK..KwKwKK.', '..KwKK....KwKK..'];
-const SHADES_SIDE = ['....KKKKKKKKKKKK', '.........KwKwKKK', '..........KwKKK.'];
-const SHADES_BACK = ['.KK..........KK.'];
-const SHADES_Y = 5;
+const HERO_OUTLINE = 0x6a4a2c;
+const FOOT = ['odo', 'ooo'];
 
-const FEET = {
+type HeroFacing = 'down' | 'up' | 'right';
+type HeroPose = 'stand' | 'stepA' | 'stepB';
+
+const FEET: Record<HeroPose, { left: number; right: number }> = {
   stand: { left: 22, right: 22 },
   stepA: { left: 22, right: 21 },
   stepB: { left: 21, right: 22 },
-} as const;
+};
 
-const FOOT = ['oSo', 'ooo'];
-
-type HeroFacing = 'down' | 'up' | 'right';
-type HeroPose = keyof typeof FEET;
+function heroBody(facing: HeroFacing): Bitmap {
+  let nut = ascii(LOGO_NUT, LOGO_LEGEND, 'hero-nut');
+  if (facing === 'up') {
+    nut = nut.flipX();
+    // the back of the shades: just the arms at the edges of the head
+    for (const y of [SHADES_ROW, SHADES_ROW + 1]) {
+      const xs = [...Array(nut.width).keys()].filter((x) => nut.get(x, y) !== null);
+      nut.set(xs[0], y, LOGO_LEGEND.K);
+      nut.set(xs[xs.length - 1], y, LOGO_LEGEND.K);
+    }
+  } else {
+    const shades = facing === 'right' ? SHADES_SIDE : SHADES_FRONT;
+    nut.blit(ascii(shades, LOGO_LEGEND, `hero-shades-${facing}`), 0, SHADES_ROW);
+  }
+  // pad by one pixel and trace an outline so the light rim reads on pale ground
+  const padded = new Bitmap(nut.width + 2, nut.height + 2).blit(nut, 1, 1);
+  return padded.outline(HERO_OUTLINE);
+}
 
 function heroFrame(facing: HeroFacing, pose: HeroPose): Bitmap {
   const frame = new Bitmap(SPRITE_W, SPRITE_H);
-  const foot = ascii(FOOT, HERO_LEGEND, 'hero-foot');
+  const foot = ascii(FOOT, { o: HERO_OUTLINE, d: LOGO_LEGEND.d }, 'hero-foot');
   const feet = FEET[pose];
-  frame.blit(foot, 4, feet.left);
-  frame.blit(foot, 9, feet.right);
-
-  let body = ascii(HERO_BODY, HERO_LEGEND, 'hero-body');
-  let shades = SHADES_FRONT;
-  if (facing === 'up') {
-    body = body.flipX();
-    shades = SHADES_BACK;
-  } else if (facing === 'right') {
-    shades = SHADES_SIDE;
-  }
-  body.blit(ascii(shades, HERO_LEGEND, `hero-shades-${facing}`), 0, SHADES_Y);
-  const bob = pose === 'stand' ? 1 : 0;
-  frame.blit(body, 0, bob);
+  frame.blit(foot, 5, feet.left);
+  frame.blit(foot, 10, feet.right);
+  frame.blit(heroBody(facing), 0, 4);
   return frame;
 }
 
@@ -105,6 +119,17 @@ export const HERO_POSES: readonly HeroPose[] = ['stand', 'stepA', 'stepB'];
 /** Frame order: facing-major, pose-minor → index = facing * 3 + pose. */
 export function heroFrames(): Bitmap[] {
   return HERO_FACINGS.flatMap((facing) => HERO_POSES.map((pose) => heroFrame(facing, pose)));
+}
+
+/** The Cashu logo at 2× the nut grid with the logo's half-cell shades (28×32). */
+export function logoArt(): Bitmap {
+  const doubled = LOGO_NUT.flatMap((row) => {
+    const wide = [...row].map((ch) => ch + ch).join('');
+    return [wide, wide];
+  });
+  const art = ascii(doubled, LOGO_LEGEND, 'logo');
+  art.blit(ascii(LOGO_SHADES_HI, LOGO_LEGEND, 'logo-shades'), 0, SHADES_ROW * 2 - 1);
+  return art;
 }
 
 // ---------------------------------------------------------------- NPCs

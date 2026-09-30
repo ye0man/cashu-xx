@@ -23,5 +23,9 @@ export function mapWalletError(reply: FastifyReply, err: unknown): FastifyReply 
   if (err instanceof ZodError) {
     return reply.code(400).send({ error: 'invalid request body' });
   }
-  return reply.code(500).send({ error: 'internal error' });
+  // Anything else comes from the mint / wallet library (network, mint 5xx, ...).
+  // Log it and surface a readable reason instead of a silent 500.
+  const message = err instanceof Error ? err.message : String(err);
+  reply.log.error({ err }, 'wallet/mint call failed');
+  return reply.code(502).send({ error: `mint error: ${message}` });
 }

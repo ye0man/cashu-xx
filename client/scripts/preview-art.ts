@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { PNG } from 'pngjs';
 import { Bitmap, scaleUp, strip } from '../src/art/bitmap';
 import { renderMap } from '../src/art/compose';
-import { heroFrames, npcSprites, propSprites } from '../src/art/sprites';
+import { heroFrames, logoArt, npcSprites, propSprites } from '../src/art/sprites';
 import { MAPS } from '../src/data/maps';
 
 const outDir = process.argv[2] ?? join(process.cwd(), 'art-preview');
@@ -25,6 +25,7 @@ function save(name: string, bitmap: Bitmap, scale: number, backdrop = 0x7b2fbe):
 }
 
 save('hero', strip(heroFrames()), 8);
+save('logo', logoArt(), 8);
 save('hero-on-ground', strip(heroFrames()), 8, 0xeef0d6);
 const npcs = npcSprites();
 save('npcs', strip(Object.values(npcs)), 8, 0xeef0d6);

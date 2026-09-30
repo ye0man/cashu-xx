@@ -38,13 +38,31 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       headers.set('authorization', `Bearer ${session.authToken}`);
     }
   }
-  const res = await fetch(path, {
-    method,
-    headers,
-    body: method === 'POST' ? JSON.stringify(options.body ?? {}) : undefined,
-  });
+  let res: Response;
+  try {
+    res = await fetch(path, {
+      method,
+      headers,
+      body: method === 'POST' ? JSON.stringify(options.body ?? {}) : undefined,
+    });
+  } catch {
+    // the game server itself is down (not the mint)
+    throw new ApiError(0, 'game server not reachable — is `npm run dev:real` running?');
+  }
   if (!res.ok) {
-    throw new ApiError(res.status, `${path} -> ${res.status}`);
+    let reason = `HTTP ${res.status}`;
+    try {
+      const body = (await res.json()) as { error?: unknown };
+      if (typeof body?.error === 'string') {
+        reason = body.error;
+      }
+    } catch {
+      // non-JSON body (e.g. the Vite proxy's own error page)
+      if (res.status === 500 || res.status === 502 || res.status === 504) {
+        reason = 'game server not reachable — is `npm run dev:real` running?';
+      }
+    }
+    throw new ApiError(res.status, reason);
   }
   return (await res.json()) as T;
 }

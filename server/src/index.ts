@@ -1,11 +1,10 @@
-import type { MintInfoResponse } from '@cashu-xx/shared';
 import { buildApp } from './app';
 import { loadConfig } from './config';
 import { Repo } from './db/repo';
 import { MinibitsWallet } from './wallet/MinibitsWallet';
 import { MockWallet } from './wallet/MockWallet';
 import type { WalletService } from './wallet/WalletService';
-import { verifyMint } from './wallet/mintVerify';
+import { MintMonitor } from './wallet/mintVerify';
 
 const config = loadConfig();
 const repo = new Repo(config.dbPath);
@@ -17,30 +16,27 @@ if (config.wallet === 'minibits') {
   wallet = new MockWallet(repo);
 }
 
-let mintInfo: MintInfoResponse = {
-  online: false,
-  name: '',
-  description: '',
-  feePpk: 0,
-  error: 'not verified yet',
-};
+const mint = new MintMonitor(config.mintUrl);
 
 const app = await buildApp({
   wallet,
   clientOrigin: config.clientOrigin,
-  getMintInfo: () => mintInfo,
+  getMintInfo: () => mint.get(),
   logger: true,
 });
 
-mintInfo = await verifyMint(config.mintUrl);
-app.log.info(
-  { mint: config.mintUrl, wallet: config.wallet, online: mintInfo.online, feePpk: mintInfo.feePpk },
-  'mint verification',
-);
-
+// Listen first: a slow or unreachable mint must never keep the API from starting.
 try {
   await app.listen({ port: config.port, host: '127.0.0.1' });
 } catch (err) {
   app.log.error(err);
   process.exit(1);
 }
+
+void mint.refresh().then((info) => {
+  const log = info.online ? app.log.info.bind(app.log) : app.log.warn.bind(app.log);
+  log(
+    { mint: config.mintUrl, wallet: config.wallet, online: info.online, feePpk: info.feePpk, error: info.error },
+    'mint verification',
+  );
+});

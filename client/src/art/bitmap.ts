@@ -60,6 +60,31 @@ export class Bitmap {
     return out;
   }
 
+  /** Returns a copy where every transparent pixel touching an opaque one (4-way) gets `color`. */
+  outline(color: number): Bitmap {
+    const out = this.clone();
+    for (let y = 0; y < this.height; y += 1) {
+      for (let x = 0; x < this.width; x += 1) {
+        if (this.get(x, y) !== null) {
+          continue;
+        }
+        const touches = [
+          [x - 1, y],
+          [x + 1, y],
+          [x, y - 1],
+          [x, y + 1],
+        ].some(
+          ([nx, ny]) =>
+            nx >= 0 && ny >= 0 && nx < this.width && ny < this.height && this.get(nx, ny) !== null,
+        );
+        if (touches) {
+          out.set(x, y, color);
+        }
+      }
+    }
+    return out;
+  }
+
   flipX(): Bitmap {
     const out = new Bitmap(this.width, this.height);
     for (let y = 0; y < this.height; y += 1) {

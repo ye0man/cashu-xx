@@ -5,6 +5,12 @@ import { api, type ApiError } from '../systems/api';
 import { getGameSession } from '../systems/session';
 
 const POLL_MS = 2000;
+const QR_SIZE = 160;
+const QR_Y = 142;
+
+function shorten(message: string, max = 64): string {
+  return message.length > max ? `${message.slice(0, max - 1)}…` : message;
+}
 
 export class PayScene extends Phaser.Scene {
   private statusText!: Phaser.GameObjects.Text;
@@ -16,6 +22,8 @@ export class PayScene extends Phaser.Scene {
   private pollEvent: Phaser.Time.TimerEvent | null = null;
   private tickEvent: Phaser.Time.TimerEvent | null = null;
   private proceeding = false;
+  private polling = false;
+  private pollError: string | null = null;
 
   constructor() {
     super({ key: 'PayScene' });
@@ -23,6 +31,8 @@ export class PayScene extends Phaser.Scene {
 
   create(): void {
     this.proceeding = false;
+    this.polling = false;
+    this.pollError = null;
     this.add
       .text(240, 26, 'PAY 100 SATS TO PLAY', {
         fontFamily: 'Courier New',
@@ -38,10 +48,12 @@ export class PayScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.statusText = this.add
-      .text(240, 232, 'creating invoice...', {
+      .text(240, 234, 'creating invoice...', {
         fontFamily: 'Courier New',
         fontSize: '12px',
         color: '#f7e7cf',
+        wordWrap: { width: 440 },
+        align: 'center',
       })
       .setOrigin(0.5);
     this.invoiceText = this.add
@@ -86,6 +98,7 @@ export class PayScene extends Phaser.Scene {
         }
       });
       keyboard.on('keydown-R', () => {
+        void this.checkMint();
         void this.requestQuote();
       });
     }
@@ -94,6 +107,12 @@ export class PayScene extends Phaser.Scene {
   }
 
   private async boot(): Promise<void> {
+    await this.checkMint();
+    await this.requestQuote();
+  }
+
+  private async checkMint(): Promise<void> {
+    this.mintText.setText('connecting to mint...');
     try {
       const info: MintInfoResponse = await api.mintInfo();
       this.mintText.setText(
@@ -101,10 +120,9 @@ export class PayScene extends Phaser.Scene {
           ? `${info.name} · BETA · fee ${info.feePpk} ppk`
           : `mint offline (${info.error ?? 'unknown'}) — R retry`,
       );
-    } catch {
-      this.mintText.setText('mint status unavailable');
+    } catch (err) {
+      this.mintText.setText(shorten((err as Error).message));
     }
-    await this.requestQuote();
   }
 
   private async requestQuote(): Promise<void> {
@@ -113,6 +131,7 @@ export class PayScene extends Phaser.Scene {
       this.statusText.setText('no session — refresh the page');
       return;
     }
+    this.statusText.setText('creating invoice...');
     try {
       this.quote = await api.deposit(session.sessionId);
       this.invoiceText.setText(this.quote.invoice);
@@ -120,7 +139,7 @@ export class PayScene extends Phaser.Scene {
       await this.showQr(this.quote.invoice);
       this.startTimers();
     } catch (err) {
-      this.statusText.setText(`invoice failed (${(err as ApiError).status ?? 'offline'}) — R retry`);
+      this.statusText.setText(`invoice failed: ${shorten((err as ApiError).message)} — R retry`);
     }
   }
 
@@ -143,16 +162,18 @@ export class PayScene extends Phaser.Scene {
       return;
     }
     const label = this.statusText.text.startsWith('CONFIRMING') ? 'CONFIRMING PAYMENT' : 'AWAITING PAYMENT — 100 sats';
-    this.statusText.setText(`${label} · ${left}s`);
+    this.statusText.setText(this.pollError ? `${this.pollError} — retrying · ${left}s` : `${label} · ${left}s`);
   }
 
   private async poll(): Promise<void> {
     const session = getGameSession();
-    if (!session || this.proceeding) {
+    if (!session || this.proceeding || this.polling) {
       return;
     }
+    this.polling = true;
     try {
       const status = await api.depositStatus(session.sessionId);
+      this.pollError = null;
       if (status.paid && !status.bundlesReady) {
         this.statusText.setText('CONFIRMING PAYMENT...');
       }
@@ -165,8 +186,11 @@ export class PayScene extends Phaser.Scene {
           this.scene.start('WorldScene', { mapId: 'nussstadt' });
         });
       }
-    } catch {
-      this.statusText.setText('mint unreachable — retrying...');
+    } catch (err) {
+      this.pollError = shorten((err as Error).message, 52);
+      this.statusText.setText(`${this.pollError} — retrying...`);
+    } finally {
+      this.polling = false;
     }
   }
 
@@ -178,7 +202,7 @@ export class PayScene extends Phaser.Scene {
     const canvas = document.createElement('canvas');
     await QRCode.toCanvas(canvas, payload, {
       margin: 2,
-      width: 180,
+      width: QR_SIZE,
       errorCorrectionLevel: 'M',
       color: { dark: '#120a24ff', light: '#e8c9a0ff' },
     });
@@ -188,6 +212,6 @@ export class PayScene extends Phaser.Scene {
     this.textureKey = `pay-qr-${Date.now()}`;
     this.textures.addCanvas(this.textureKey, canvas);
     this.qrImage?.destroy();
-    this.qrImage = this.add.image(240, 140, this.textureKey).setDisplaySize(180, 180);
+    this.qrImage = this.add.image(240, QR_Y, this.textureKey).setDisplaySize(QR_SIZE, QR_SIZE);
   }
 }

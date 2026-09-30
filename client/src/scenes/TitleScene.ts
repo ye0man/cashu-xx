@@ -33,10 +33,10 @@ export class TitleScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // XX himself, drawn from the Cashu logo, on a purple spotlight.
-    this.add.circle(240, 158, 50, 0x7b2fbe);
-    const hero = this.add.image(240, 158, 'player', 0).setScale(3).setOrigin(0.5);
-    this.tweens.add({ targets: hero, y: 154, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    // The Cashu logo, pixel for pixel, on its purple field.
+    this.add.circle(240, 156, 52, 0x7f38ca);
+    const hero = this.add.image(240, 156, 'logo').setScale(2).setOrigin(0.5);
+    this.tweens.add({ targets: hero, y: 152, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
     const hint = this.add
       .text(240, 232, 'PRESS ENTER TO PLAY — 100 SATS', {
@@ -127,8 +127,28 @@ export class TitleScene extends Phaser.Scene {
       setGameSession(session);
       await delay(150);
       this.scene.start('PayScene');
-    } catch {
-      this.scene.start('WorldScene', { mapId: 'nussstadt' });
+    } catch (err) {
+      // Don't silently start an unpaid run whose tokens can never be claimed.
+      this.started = false;
+      this.showError(`${(err as Error).message} — ENTER to retry`);
+      this.input.keyboard?.once('keydown-ENTER', () => {
+        void this.startGame();
+      });
     }
+  }
+
+  private errorText: Phaser.GameObjects.Text | null = null;
+
+  private showError(message: string): void {
+    this.errorText?.destroy();
+    this.errorText = this.add
+      .text(240, 300, message, {
+        fontFamily: 'Courier New',
+        fontSize: '10px',
+        color: '#f07878',
+        wordWrap: { width: 460 },
+        align: 'center',
+      })
+      .setOrigin(0.5);
   }
 }
