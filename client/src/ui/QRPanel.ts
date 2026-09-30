@@ -100,10 +100,10 @@ export class QRPanel {
   private async renderQr(payload: string): Promise<void> {
     const canvas = document.createElement('canvas');
     await QRCode.toCanvas(canvas, payload, {
-      margin: 1,
+      margin: 2,
       width: QR_SIZE,
       errorCorrectionLevel: 'M',
-      color: { dark: '#e8c9a0ff', light: '#120a24ff' },
+      color: { dark: '#120a24ff', light: '#e8c9a0ff' },
     });
     if (this.textureKey) {
       this.scene.textures.remove(this.textureKey);

@@ -4,7 +4,7 @@ import type { DialogManager } from '../ui/DialogManager';
 import type { QRPanel } from '../ui/QRPanel';
 import { audio } from './audio';
 import { api } from './api';
-import { setFlag } from './quests';
+import { earnedMilestones, setFlag } from './quests';
 import { getGameSession } from './session';
 
 export interface TokenResult {
@@ -13,6 +13,7 @@ export interface TokenResult {
 }
 
 export interface ClaimUI {
+  scene: Phaser.Scene;
   dialog: DialogManager;
   qr: QRPanel;
   showToast: (message: string) => void;
@@ -43,9 +44,14 @@ export async function showTokenClaim(ui: ClaimUI, milestoneId: MilestoneId): Pro
       result.token,
       'Z close (save for later) · C copy token',
     );
-    return;
+  } else {
+    await ui.dialog.openAsync({ lines: tokenLines(milestoneId, result) });
   }
-  await ui.dialog.openAsync({ lines: tokenLines(milestoneId, result) });
+  if (earnedMilestones().length >= 10) {
+    ui.scene.time.delayedCall(1500, () => {
+      ui.scene.scene.start('EndingScene');
+    });
+  }
 }
 
 export function tokenLines(milestoneId: MilestoneId, result: TokenResult): string[] {

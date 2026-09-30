@@ -3,12 +3,13 @@ import { MILESTONE_IDS, MILESTONE_LABELS } from '@cashu-xx/shared';
 import { SIGN_TOTAL } from '../data/signs';
 import { audio } from '../systems/audio';
 import { getJournal, isMilestoneEarned } from '../systems/quests';
+import { cycleTextSpeed, getSettings, toggleMuted } from '../systems/settings';
 import { worldState, writeSave } from '../systems/save';
 import type { Direction } from '../systems/movement';
 
-type MenuPage = 'DRAFT' | 'TOKENS' | 'SIGNS' | 'SAVE';
+type MenuPage = 'DRAFT' | 'TOKENS' | 'SIGNS' | 'SETTINGS' | 'SAVE';
 
-const PAGES: MenuPage[] = ['DRAFT', 'TOKENS', 'SIGNS', 'SAVE'];
+const PAGES: MenuPage[] = ['DRAFT', 'TOKENS', 'SIGNS', 'SETTINGS', 'SAVE'];
 
 export interface MenuSnapshot {
   mapId: string;
@@ -23,6 +24,7 @@ export class MenuManager {
   private readonly bodyText: Phaser.GameObjects.Text;
   private readonly actionKeys: Phaser.Input.Keyboard.Key[];
   private readonly closeKeys: Phaser.Input.Keyboard.Key[];
+  private readonly muteKeys: Phaser.Input.Keyboard.Key[];
   private readonly leftKey: Phaser.Input.Keyboard.Key;
   private readonly rightKey: Phaser.Input.Keyboard.Key;
   private readonly snapshot: () => MenuSnapshot;
@@ -59,6 +61,7 @@ export class MenuManager {
     }
     this.actionKeys = [keyboard.addKey('ENTER'), keyboard.addKey('Z'), keyboard.addKey('SPACE')];
     this.closeKeys = [keyboard.addKey('X'), keyboard.addKey('ESC')];
+    this.muteKeys = [keyboard.addKey('M')];
     this.leftKey = keyboard.addKey('LEFT');
     this.rightKey = keyboard.addKey('RIGHT');
   }
@@ -87,6 +90,10 @@ export class MenuManager {
       this.close();
       return;
     }
+    if (this.muteKeys.some((key) => Phaser.Input.Keyboard.JustDown(key))) {
+      audio.setMuted(toggleMuted());
+      this.render();
+    }
     if (Phaser.Input.Keyboard.JustDown(this.leftKey)) {
       this.pageIndex = (this.pageIndex + PAGES.length - 1) % PAGES.length;
       this.savedFlash = false;
@@ -99,10 +106,17 @@ export class MenuManager {
       audio.playSfx('sfx-menu');
       this.render();
     }
-    if (this.actionKeys.some((key) => Phaser.Input.Keyboard.JustDown(key)) && PAGES[this.pageIndex] === 'SAVE') {
-      writeSave(this.snapshot());
-      this.savedFlash = true;
-      this.render();
+    if (this.actionKeys.some((key) => Phaser.Input.Keyboard.JustDown(key))) {
+      const page = PAGES[this.pageIndex];
+      if (page === 'SAVE') {
+        writeSave(this.snapshot());
+        this.savedFlash = true;
+        this.render();
+      } else if (page === 'SETTINGS') {
+        cycleTextSpeed();
+        audio.playSfx('sfx-menu');
+        this.render();
+      }
     }
   }
 
@@ -139,6 +153,16 @@ export class MenuManager {
     if (page === 'SIGNS') {
       const read = [...worldState.readSigns];
       return [`READ ${read.length}/${SIGN_TOTAL}`, '', ...(read.length > 0 ? read : ['(none yet)'])].join('\n');
+    }
+    if (page === 'SETTINGS') {
+      const settings = getSettings();
+      return [
+        `TEXT SPEED   ${settings.textSpeed.toUpperCase().padEnd(10, '.')} Z cycles`,
+        `SOUND        ${(settings.muted ? 'OFF' : 'ON').padEnd(10, '.')} M toggles`,
+        '',
+        'Everything else is keyboard: arrows move,',
+        'Z talk/read, X menu, N night.',
+      ].join('\n');
     }
     return this.savedFlash ? 'SAVED.' : 'Press Z to save your journey.';
   }

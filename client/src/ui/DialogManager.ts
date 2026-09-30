@@ -1,8 +1,7 @@
 import * as Phaser from 'phaser';
 import { audio } from '../systems/audio';
 import type { DialogueScript } from '../systems/dialogue';
-
-const TYPE_MS_PER_CHAR = 18;
+import { TEXT_SPEED_MS, getSettings } from '../systems/settings';
 
 export class DialogManager {
   private readonly container: Phaser.GameObjects.Container;
@@ -83,7 +82,12 @@ export class DialogManager {
 
     const full = this.currentLine();
     if (this.typing) {
-      this.revealed += delta / TYPE_MS_PER_CHAR;
+      const perChar = TEXT_SPEED_MS[getSettings().textSpeed];
+      if (perChar === 0) {
+        this.revealed = full.length;
+      } else {
+        this.revealed += delta / perChar;
+      }
       const shown = Math.min(full.length, Math.floor(this.revealed));
       this.bodyText.setText(full.slice(0, shown));
       if (shown >= full.length) {

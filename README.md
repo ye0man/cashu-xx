@@ -1,5 +1,9 @@
 # Cashu-XX
 
+<p align="center">
+  <img src="docs/img/keyart.png" alt="Cashu-XX key art: a pixel-art nut hero walking through an 8-bit Berlin-inspired city" width="720" />
+</p>
+
 A Pokémon Crystal–style 8-bit browser RPG about getting merged into the Cashu spec.
 
 You are **XX** — a nut with sunglasses and no NUT number, a walking placeholder
@@ -13,32 +17,48 @@ as a new NUT.
 Your 100 sats come back as **10 real cashu tokens** (10 sats each), earned at
 milestones and found hidden around the city. Scan them with any cashu wallet.
 
+## Screenshots
+
+| Title & payment | Nussstadt |
+| --- | --- |
+| <img src="docs/screenshots/2-payment.png" alt="Payment screen with a lightning invoice QR and Trainer ID" width="360" /> | <img src="docs/screenshots/3-overworld.png" alt="The hero walking the cobblestone streets of Nussstadt" width="360" /> |
+
+| Reading the signs | *(more in [docs/screenshots/](docs/screenshots/))* |
+| --- | --- |
+| <img src="docs/screenshots/4-dialog.png" alt="A sign dialog: a proof is a promise from the mint" width="360" /> | <img src="docs/screenshots/1-title.png" alt="Title screen" width="360" /> |
+
+Promo clip: [docs/media/promo.mp4](docs/media/promo.mp4)
+
 ## Status
 
-P3 landed — real Minibits mint integration (pay 100 sats, claim 100 sats back). See [`docs/ROADMAP.md`](docs/ROADMAP.md).
+v1 complete (P0–P5) — real Minibits mint integration: pay 100 sats, play, claim
+100 sats back. See [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Docs
 
 | Doc | Contents |
 | --- | --- |
 | [docs/GDD.md](docs/GDD.md) | Game design: story, characters, world, challenges, token economy |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Client/server design, wallet flows, QR entry & redemption |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Client/server design, wallet flows, QR entry & redemption, art pipeline |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Build phases P0–P5 |
 
 ## The loop
 
-1. **Pay** — scan a 100-sat Lightning invoice (any LN wallet works).
+1. **Pay** — scan a 100-sat Lightning invoice (any LN wallet works). Your
+   **Trainer ID** (claim code) appears on the payment screen — save it.
 2. **Play** — ~30 min of quests modeled on the NUT contribution process.
-3. **Claim** — 10 tokens × 10 sats, each a `cashuA` QR any cashu wallet can take.
-   The game never takes a cut.
+3. **Claim** — 10 tokens × 10 sats, each a `cashuA` QR any cashu wallet can take
+   (the receptionist at Minibits HQ re-displays any of them). The game never
+   takes a cut.
 
-Ecash on the [Minibits mint](https://minibits.cash) (best-effort beta mint — small amounts only).
+Ecash on the [Minibits mint](https://minibits.cash) (best-effort beta mint —
+small amounts only).
 
-## Stack (planned)
+## Stack
 
 - **Client:** Phaser 4 · TypeScript · Vite
-- **Server:** Node · Fastify · SQLite · [`@cashu/coco-core`](https://github.com/cashubtc/coco)
-- **Art:** AI-generated, palette-snapped GBC pixel art
+- **Server:** Node · Fastify · SQLite · [`@cashu/coco-core`](https://github.com/cashubtc/coco) + `@cashu/coco-sqlite`
+- **Art:** AI-generated, palette-snapped GBC pixel art (pipeline in [`tools/`](tools/))
 - **Audio:** 8-bit generated tracks + SFX
 
 ## Development
@@ -51,11 +71,17 @@ npm test           # vitest (wallet + API + world data)
 ```
 
 With `dev:real`: pay the 100-sat invoice with any Lightning wallet, play, and
-claim 10 × 10-sat cashu tokens with any cashu wallet. Trainer ID (claim code)
-recovers unclaimed tokens later — ask the receptionist at Minibits HQ.
+claim 10 × 10-sat cashu tokens with any cashu wallet.
 
-Walk around with arrows/WASD · Z talk/read · X menu.
+Controls: arrows/WASD move · Z talk/read · X menu · N night · text speed and
+sound in the menu's SETTINGS page.
 
-## License
+## Credits & licenses
 
-TBD.
+- Game design, code, and pixel pipeline: this repo (MIT or TBD).
+- Art generated with Flux (fal.ai) and normalized to a 16-color palette; music
+  and jingles generated with Stable Audio 2.5; all generation provenance in
+  [`assets/manifest.json`](assets/manifest.json).
+- SFX "Videogame Menu Select" by Fupicat and "Wooden door open-close" by Ryding
+  ([Freesound](https://freesound.org)) — both **CC0 1.0**.
+- Cashu protocol: [cashubtc/nuts](https://github.com/cashubtc/nuts).

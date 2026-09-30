@@ -62,11 +62,19 @@ Phased build plan. Scope: ~30-minute game, one city district, 7 named NPCs,
 
 ## P5 — Polish & release
 
-- [ ] Ending sequence + 100% completion tracking (all 10 tokens)
-- [ ] Accessibility pass (text speed, QR contrast, copy fallbacks)
-- [ ] Playtest: timing, hint quality, QR scanability on real wallets
-- [ ] README screenshots + a demo video
-- [ ] Decide hosting (currently: local-only)
+- [x] Ending sequence + 100% completion tracking (all 10 tokens)
+- [x] Accessibility pass (text speed, mute, QR polarity, copy fallbacks, Trainer ID on payment screen)
+- [x] Playtest: timing, hint quality, QR scanability on real wallets (real-mint E2E verified manually)
+- [x] README screenshots + promo clip (gameplay screen-record still a nice-to-have)
+- [ ] Decide hosting (currently: local-only — options below)
+
+**Exit:** shippable v1 on localhost.
+
+### Hosting options (decision pending)
+
+1. **Stay local** — `npm run dev:real` on demand; zero ops, zero custody surface.
+2. **Hostinger** — Node app + SQLite on the VPS, static client; custom domain.
+3. **itch.io + API** — client on itch.io, wallet API on a small VPS (CORS/session quirks).
 
 ---
 

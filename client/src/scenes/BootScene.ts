@@ -1,5 +1,6 @@
 import * as Phaser from 'phaser';
 import { audio } from '../systems/audio';
+import { loadSettings } from '../systems/settings';
 
 const IMAGE_ASSETS: Record<string, string> = {
   'tile-floor': 'assets/tiles/tile-floor.png',
@@ -60,6 +61,7 @@ export class BootScene extends Phaser.Scene {
 
   create(): void {
     audio.init(this.sound);
+    audio.setMuted(loadSettings().muted);
     this.makeFallbacks();
     audio.playTheme('title');
     this.scene.start('TitleScene');

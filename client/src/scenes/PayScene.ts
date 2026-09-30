@@ -61,12 +61,28 @@ export class PayScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    const session = getGameSession();
+    this.add
+      .text(240, 288, `TRAINER ID: ${session?.claimCode ?? '—'}  (T copies — save it!)`, {
+        fontFamily: 'Courier New',
+        fontSize: '11px',
+        color: '#9d5fe0',
+      })
+      .setOrigin(0.5);
+
     const keyboard = this.input.keyboard;
     if (keyboard) {
       keyboard.on('keydown-C', () => {
         if (this.quote) {
           void navigator.clipboard?.writeText(this.quote.invoice);
-          this.flash('COPIED!');
+          this.flash('INVOICE COPIED!');
+        }
+      });
+      keyboard.on('keydown-T', () => {
+        const claim = getGameSession()?.claimCode;
+        if (claim) {
+          void navigator.clipboard?.writeText(claim);
+          this.flash('TRAINER ID COPIED!');
         }
       });
       keyboard.on('keydown-R', () => {
@@ -161,10 +177,10 @@ export class PayScene extends Phaser.Scene {
   private async showQr(payload: string): Promise<void> {
     const canvas = document.createElement('canvas');
     await QRCode.toCanvas(canvas, payload, {
-      margin: 1,
+      margin: 2,
       width: 180,
       errorCorrectionLevel: 'M',
-      color: { dark: '#e8c9a0ff', light: '#120a24ff' },
+      color: { dark: '#120a24ff', light: '#e8c9a0ff' },
     });
     if (this.textureKey) {
       this.textures.remove(this.textureKey);

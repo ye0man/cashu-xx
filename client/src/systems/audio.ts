@@ -33,6 +33,12 @@ class AudioManager {
     this.sound = sound;
   }
 
+  setMuted(muted: boolean): void {
+    if (this.sound) {
+      this.sound.mute = muted;
+    }
+  }
+
   playTheme(theme: ThemeKey): void {
     if (!this.sound || this.currentTheme === theme) {
       return;
