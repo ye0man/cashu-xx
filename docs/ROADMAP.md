@@ -66,15 +66,17 @@ Phased build plan. Scope: ~30-minute game, one city district, 7 named NPCs,
 - [x] Accessibility pass (text speed, mute, QR polarity, copy fallbacks, Trainer ID on payment screen)
 - [x] Playtest: timing, hint quality, QR scanability on real wallets (real-mint E2E verified manually)
 - [x] README screenshots + promo clip (gameplay screen-record still a nice-to-have)
-- [ ] Decide hosting (currently: local-only — options below)
+- [x] Decide hosting: **local for now** — later self-hosted on the owner's own website
 
 **Exit:** shippable v1 on localhost.
 
-### Hosting options (decision pending)
+### Hosting decision (2026-09-30)
 
-1. **Stay local** — `npm run dev:real` on demand; zero ops, zero custody surface.
-2. **Hostinger** — Node app + SQLite on the VPS, static client; custom domain.
-3. **itch.io + API** — client on itch.io, wallet API on a small VPS (CORS/session quirks).
+Local development/deployment only for v1 (`npm run dev:real`). When moving to the
+owner's own website: the client is a static bundle (any web host) and the wallet
+API is a small Node app with SQLite (needs Node ≥22). Keep `MINT_URL` pointed at
+the Minibits mint (or a successor) and move `server/data/` (wallet seed + ledger)
+alongside the deployed server — it holds player claim codes.
 
 ---
 
