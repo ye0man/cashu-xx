@@ -15,7 +15,7 @@ milestones and found hidden around the city. Scan them with any cashu wallet.
 
 ## Status
 
-P0 scaffold landed — walkable grey-box world + mock wallet loop. See [`docs/ROADMAP.md`](docs/ROADMAP.md).
+P3 landed — real Minibits mint integration (pay 100 sats, claim 100 sats back). See [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Docs
 
@@ -46,11 +46,15 @@ Ecash on the [Minibits mint](https://minibits.cash) (best-effort beta mint — s
 ```bash
 npm install
 npm run dev        # mock wallet — free  (client :5173, server :8787)
-npm run dev:real   # real Minibits mint — real sats (lands in P3)
-npm test           # vitest (wallet + API)
+npm run dev:real   # real Minibits mint — real sats!
+npm test           # vitest (wallet + API + world data)
 ```
 
-Walk around with arrows/WASD. Press `U` in the overworld to unlock a mock token.
+With `dev:real`: pay the 100-sat invoice with any Lightning wallet, play, and
+claim 10 × 10-sat cashu tokens with any cashu wallet. Trainer ID (claim code)
+recovers unclaimed tokens later — ask the receptionist at Minibits HQ.
+
+Walk around with arrows/WASD · Z talk/read · X menu.
 
 ## License
 

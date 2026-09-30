@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   claim_code TEXT UNIQUE NOT NULL,
   auth_token TEXT NOT NULL,
   quote_id TEXT,
+  mint_op_id TEXT,
   invoice TEXT,
   quote_expires_at INTEGER,
   state TEXT NOT NULL DEFAULT 'created',

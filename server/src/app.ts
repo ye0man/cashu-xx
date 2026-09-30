@@ -1,8 +1,10 @@
 import cors from '@fastify/cors';
 import Fastify, { type FastifyInstance } from 'fastify';
+import type { MintInfoResponse } from '@cashu-xx/shared';
 import { registerDepositRoutes } from './routes/deposit';
 import { makeGuard } from './routes/helpers';
 import { registerLedgerRoutes } from './routes/ledger';
+import { registerMintRoutes } from './routes/mint';
 import { registerSessionRoutes } from './routes/session';
 import { registerUnlockRoutes } from './routes/unlock';
 import type { WalletService } from './wallet/WalletService';
@@ -10,6 +12,7 @@ import type { WalletService } from './wallet/WalletService';
 export interface BuildAppOptions {
   wallet: WalletService;
   clientOrigin: string;
+  getMintInfo?: () => MintInfoResponse;
   logger?: boolean;
 }
 
@@ -41,6 +44,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   registerDepositRoutes(app, options.wallet, guard);
   registerUnlockRoutes(app, options.wallet, guard);
   registerLedgerRoutes(app, options.wallet, guard);
+  registerMintRoutes(app, () => options.getMintInfo?.() ?? { online: false, name: '', description: '', feePpk: 0, error: 'mint info unavailable' });
 
   return app;
 }

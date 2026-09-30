@@ -9,15 +9,18 @@ import {
   TRACE_CORRECT,
 } from '../data/challenges';
 import type { PickupSpot } from '../data/maps';
-import { runQuestions, runShellRounds, runTraceOrder } from './challenges';
 import type { DialogManager } from '../ui/DialogManager';
+import type { QRPanel } from '../ui/QRPanel';
+import { runQuestions, runShellRounds, runTraceOrder } from './challenges';
 import { STORY_FLAGS, earnedMilestones, getJournal, hasFlag, hiddenFound, setFlag } from './quests';
-import { tokenLines, unlockMilestone } from './tokens';
+import { showTokenClaim } from './tokens';
 
 export interface StoryContext {
   scene: Phaser.Scene;
   dialog: DialogManager;
+  qr: QRPanel;
   showToast: (message: string) => void;
+  openTokenBank: () => void;
 }
 
 export function talkTo(npcId: string, ctx: StoryContext): void {
@@ -61,12 +64,11 @@ async function runPickup(spot: PickupSpot, ctx: StoryContext): Promise<void> {
     });
     return;
   }
-  const milestoneId = spot.milestoneId as MilestoneId;
-  const result = await unlockMilestone(milestoneId);
   ctx.showToast('Hidden token found!');
   await ctx.dialog.openAsync({
-    lines: ['You found a hidden cashu token under the dust!', ...tokenLines(milestoneId, result)],
+    lines: ['You found a hidden cashu token under the dust!'],
   });
+  await showTokenClaim(ctx, spot.milestoneId as MilestoneId);
 }
 
 async function talkHickory(ctx: StoryContext): Promise<void> {
@@ -182,8 +184,7 @@ async function runCeremony(ctx: StoryContext): Promise<void> {
     speaker: 'PROF. HICKORY',
     lines: ['The maintainers assigned your number: NUT-31. Wear it well. Go find your tokens.'],
   });
-  const result = await unlockMilestone('ceremony');
-  await dialog.openAsync({ lines: tokenLines('ceremony', result) });
+  await showTokenClaim(ctx, 'ceremony');
 }
 
 async function talkRusty(ctx: StoryContext): Promise<void> {
@@ -208,11 +209,11 @@ async function talkRusty(ctx: StoryContext): Promise<void> {
   });
   await runQuestions(dialog, SWAP_PUZZLE_QUESTIONS);
   setFlag('impl-rusty');
-  const result = await unlockMilestone('impl-rusty');
   await dialog.openAsync({
     speaker: 'RUSTY',
-    lines: ['Hmph. Exact change every time. Fine — my implementation PR is up. Ready to Merge.', ...tokenLines('impl-rusty', result)],
+    lines: ['Hmph. Exact change every time. Fine — my implementation PR is up. Ready to Merge.'],
   });
+  await showTokenClaim(ctx, 'impl-rusty');
   await maybeLabelAwaitingImpl(ctx);
 }
 
@@ -239,11 +240,11 @@ async function talkCoco(ctx: StoryContext): Promise<void> {
   await runShellRounds(dialog, SHELL_GAME_ROUNDS);
   await runQuestions(dialog, BLIND_SIGNATURE_QUESTIONS);
   setFlag('impl-coco');
-  const result = await unlockMilestone('impl-coco');
   await dialog.openAsync({
     speaker: 'COCO',
-    lines: ['You tracked every swap AND you get blinding. Implementation PR: open. Ready to Merge!', ...tokenLines('impl-coco', result)],
+    lines: ['You tracked every swap AND you get blinding. Implementation PR: open. Ready to Merge!'],
   });
+  await showTokenClaim(ctx, 'impl-coco');
   await maybeLabelAwaitingImpl(ctx);
 }
 
@@ -270,11 +271,11 @@ async function talkPip(ctx: StoryContext): Promise<void> {
   await runTraceOrder(dialog, TRACE_CORRECT);
   await runQuestions(dialog, [PIP_SCRIPT_QUESTION]);
   setFlag('impl-pip');
-  const result = await unlockMilestone('impl-pip');
   await dialog.openAsync({
     speaker: 'PIP',
-    lines: ['Acceptable. My implementation PR is open and documented. Ready to Merge.', ...tokenLines('impl-pip', result)],
+    lines: ['Acceptable. My implementation PR is open and documented. Ready to Merge.'],
   });
+  await showTokenClaim(ctx, 'impl-pip');
   await maybeLabelAwaitingImpl(ctx);
 }
 
@@ -287,18 +288,10 @@ async function talkDjMac(ctx: StoryContext): Promise<void> {
   if (hasFlag(STORY_FLAGS.recordFound)) {
     await dialog.openAsync({
       speaker: 'DJ MAC',
-      lines: ['MY RECORD! My B-side! My JINGLE! You beautiful placeholder, you!'],
+      lines: ['MY RECORD! My B-side! My JINGLE! You beautiful placeholder, you!', 'A deal’s a deal. Here — one cashu token. And your PR? Consider me ACK’d.'],
     });
     setFlag('djmac-record');
-    const result = await unlockMilestone('djmac-record');
-    await dialog.openAsync({
-      speaker: 'DJ MAC',
-      lines: [
-        'A deal’s a deal. Here — one cashu token. Ecash spends better than applause.',
-        'Oh and your PR? I read it between sets. Consider me ACK’d.',
-        ...tokenLines('djmac-record', result),
-      ],
-    });
+    await showTokenClaim(ctx, 'djmac-record');
     await maybeLabelAwaitingImpl(ctx);
     return;
   }
@@ -327,34 +320,47 @@ async function talkKimi(ctx: StoryContext): Promise<void> {
   });
   await runQuestions(dialog, DISCLOSURE_SCENARIOS);
   setFlag('kimi-test');
-  const result = await unlockMilestone('kimi-test');
   await dialog.openAsync({
     speaker: 'KIMI',
     lines: [
       'Disciplined. Boring. Correct. Highest praise I have.',
       'Your PR is ACK’d. Here’s a token — consider it a bug bounty of one.',
-      ...tokenLines('kimi-test', result),
     ],
   });
+  await showTokenClaim(ctx, 'kimi-test');
   await maybeLabelAwaitingImpl(ctx);
 }
 
 async function talkReceptionist(ctx: StoryContext): Promise<void> {
+  const dialog = ctx.dialog;
   const hidden = hiddenFound();
   const earned = earnedMilestones().length;
-  const done = earned >= 10;
-  await ctx.dialog.openAsync({
+  const choice = await dialog.openAsync({
     speaker: 'RECEPTIONIST',
-    lines: done
-      ? [
-          'Hidden tokens found: 4/4. Total tokens: 10/10.',
-          'Complete. NUT-31, your ledger is spotless. The mint is still best-effort, though.',
-        ]
-      : [
-          `Hidden tokens found: ${hidden}/4. Total tokens earned: ${earned}/10.`,
-          'The lobby coffee is free. The ecash is yours to find. Ask around — trash cans lie.',
-        ],
+    choices: [
+      { id: 'tokens', label: 'Show my tokens' },
+      { id: 'report', label: 'Status report' },
+      { id: 'bye', label: 'Goodbye' },
+    ],
+    lines: [
+      earned >= 10
+        ? 'NUT-31! Ledger spotless: 10/10 tokens. The mint is still best-effort, though.'
+        : `Welcome to Minibits HQ. Tokens earned: ${earned}/10. Hidden finds: ${hidden}/4.`,
+    ],
   });
+  if (choice === 'tokens') {
+    ctx.openTokenBank();
+    return;
+  }
+  if (choice === 'report') {
+    await dialog.openAsync({
+      speaker: 'RECEPTIONIST',
+      lines: [
+        `Hidden tokens found: ${hidden}/4. Total tokens earned: ${earned}/10.`,
+        'The lobby coffee is free. The ecash is yours to find. Ask around — trash cans lie.',
+      ],
+    });
+  }
 }
 
 async function maybeLabelAwaitingImpl(ctx: StoryContext): Promise<void> {

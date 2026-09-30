@@ -5,6 +5,7 @@ import type {
   DepositStatus,
   LedgerResponse,
   MilestoneId,
+  MintInfoResponse,
   UnlockResponse,
 } from '@cashu-xx/shared';
 import { getGameSession } from './session';
@@ -62,4 +63,5 @@ export const api = {
   ledger: (sessionId: string) => request<LedgerResponse>(`/api/session/${sessionId}/ledger`, { auth: true }),
   claim: (claimCode: string) =>
     request<ClaimResponse>('/api/session/claim', { method: 'POST', body: { claimCode } }),
+  mintInfo: () => request<MintInfoResponse>('/api/mint'),
 };

@@ -16,8 +16,11 @@ import { type Direction, DELTAS, GridMover } from '../systems/movement';
 import { hasFlag } from '../systems/quests';
 import { worldState } from '../systems/save';
 import { type StoryContext, talkTo, touchPickup } from '../systems/story';
+import { showTokenClaim } from '../systems/tokens';
 import { DialogManager } from '../ui/DialogManager';
 import { MenuManager } from '../ui/MenuManager';
+import { QRPanel } from '../ui/QRPanel';
+import { TokenBank } from '../ui/TokenBank';
 
 interface WorldEntry {
   mapId?: string;
@@ -40,6 +43,8 @@ export class WorldScene extends Phaser.Scene {
   private menuKey!: Phaser.Input.Keyboard.Key;
   private dialog!: DialogManager;
   private menu!: MenuManager;
+  private qrPanel!: QRPanel;
+  private tokenBank!: TokenBank;
   private hint!: Phaser.GameObjects.Text;
   private toast!: Phaser.GameObjects.Text;
   private toastEvent: Phaser.Time.TimerEvent | null = null;
@@ -111,6 +116,10 @@ export class WorldScene extends Phaser.Scene {
       .setAlpha(0);
 
     this.dialog = new DialogManager(this);
+    this.qrPanel = new QRPanel(this);
+    this.tokenBank = new TokenBank(this, (milestoneId) => {
+      void showTokenClaim(this.storyContext(), milestoneId);
+    });
     this.menu = new MenuManager(this, () => ({
       mapId: this.mapDef.id,
       tileX: this.mover.tileX,
@@ -133,7 +142,9 @@ export class WorldScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     this.dialog.update(delta);
     this.menu.update();
-    const busy = this.dialog.isOpen || this.menu.isOpen;
+    this.qrPanel.update();
+    this.tokenBank.update();
+    const busy = this.dialog.isOpen || this.menu.isOpen || this.qrPanel.isOpen || this.tokenBank.isOpen;
     this.hint.setVisible(!busy);
     if (busy) {
       return;
@@ -253,7 +264,9 @@ export class WorldScene extends Phaser.Scene {
     return {
       scene: this,
       dialog: this.dialog,
+      qr: this.qrPanel,
       showToast: (message: string) => this.showToast(message),
+      openTokenBank: () => this.tokenBank.open(),
     };
   }
 

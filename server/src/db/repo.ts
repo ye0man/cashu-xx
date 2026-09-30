@@ -8,6 +8,7 @@ export interface SessionRow {
   claim_code: string;
   auth_token: string;
   quote_id: string | null;
+  mint_op_id: string | null;
   invoice: string | null;
   quote_expires_at: number | null;
   state: SessionState;
@@ -23,6 +24,11 @@ export interface BundleRow {
   issued_at: number | null;
 }
 
+export interface BundleSeed {
+  milestoneId: MilestoneId;
+  token: string;
+}
+
 export class Repo {
   private readonly db: Database.Database;
 
@@ -33,13 +39,21 @@ export class Repo {
     this.db = new Database(dbPath);
     const schema = readFileSync(new URL('./schema.sql', import.meta.url), 'utf8');
     this.db.exec(schema);
+    this.migrate();
+  }
+
+  private migrate(): void {
+    const columns = this.db.prepare('PRAGMA table_info(sessions)').all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === 'mint_op_id')) {
+      this.db.exec('ALTER TABLE sessions ADD COLUMN mint_op_id TEXT');
+    }
   }
 
   createSession(row: SessionRow): void {
     this.db
       .prepare(
-        `INSERT INTO sessions (id, claim_code, auth_token, quote_id, invoice, quote_expires_at, state, created_at)
-         VALUES (@id, @claim_code, @auth_token, @quote_id, @invoice, @quote_expires_at, @state, @created_at)`,
+        `INSERT INTO sessions (id, claim_code, auth_token, quote_id, mint_op_id, invoice, quote_expires_at, state, created_at)
+         VALUES (@id, @claim_code, @auth_token, @quote_id, @mint_op_id, @invoice, @quote_expires_at, @state, @created_at)`,
       )
       .run(row);
   }
@@ -58,21 +72,30 @@ export class Repo {
       .run(quoteId, invoice, expiresAt, id);
   }
 
+  setMintOp(id: string, mintOpId: string): void {
+    this.db.prepare('UPDATE sessions SET mint_op_id = ? WHERE id = ?').run(mintOpId, id);
+  }
+
   setState(id: string, state: SessionState): void {
     this.db.prepare('UPDATE sessions SET state = ? WHERE id = ?').run(state, id);
   }
 
-  createBundles(sessionId: string, milestoneIds: readonly MilestoneId[]): void {
+  createBundles(sessionId: string, seeds: BundleSeed[]): void {
     const insert = this.db.prepare(
       `INSERT INTO bundles (session_id, milestone_id, token, state, unlocked_at, issued_at)
-       VALUES (?, ?, NULL, 'locked', NULL, NULL)`,
+       VALUES (?, ?, ?, 'locked', NULL, NULL)`,
     );
-    const tx = this.db.transaction((ids: readonly MilestoneId[]) => {
-      for (const milestoneId of ids) {
-        insert.run(sessionId, milestoneId);
+    const tx = this.db.transaction((entries: BundleSeed[]) => {
+      for (const entry of entries) {
+        insert.run(sessionId, entry.milestoneId, entry.token);
       }
     });
-    tx(milestoneIds);
+    tx(seeds);
+  }
+
+  hasBundles(sessionId: string): boolean {
+    const row = this.db.prepare('SELECT COUNT(*) AS n FROM bundles WHERE session_id = ?').get(sessionId) as { n: number };
+    return row.n > 0;
   }
 
   getBundle(sessionId: string, milestoneId: MilestoneId): BundleRow | undefined {
@@ -81,10 +104,12 @@ export class Repo {
       .get(sessionId, milestoneId) as BundleRow | undefined;
   }
 
-  issueToken(sessionId: string, milestoneId: MilestoneId, token: string, at: number): void {
+  markIssued(sessionId: string, milestoneId: MilestoneId, at: number): void {
     this.db
-      .prepare(`UPDATE bundles SET token = ?, state = 'issued', unlocked_at = ?, issued_at = ? WHERE session_id = ? AND milestone_id = ?`)
-      .run(token, at, at, sessionId, milestoneId);
+      .prepare(
+        `UPDATE bundles SET state = 'issued', unlocked_at = ?, issued_at = ? WHERE session_id = ? AND milestone_id = ?`,
+      )
+      .run(at, at, sessionId, milestoneId);
   }
 
   listBundles(sessionId: string): BundleRow[] {

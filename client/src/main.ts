@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import { GAME_CONFIG } from './data/config';
 import { BootScene } from './scenes/BootScene';
+import { PayScene } from './scenes/PayScene';
 import { TitleScene } from './scenes/TitleScene';
 import { WorldScene } from './scenes/WorldScene';
 
@@ -15,7 +16,7 @@ const config: Phaser.Types.Core.GameConfig = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  scene: [BootScene, TitleScene, WorldScene],
+  scene: [BootScene, TitleScene, PayScene, WorldScene],
 };
 
 new Phaser.Game(config);

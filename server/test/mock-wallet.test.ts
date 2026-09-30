@@ -63,4 +63,18 @@ describe('MockWallet', () => {
     expect(await wallet.authenticate(session.sessionId, 'wrong')).toBe(false);
     expect(await wallet.authenticate('nope', session.authToken)).toBe(false);
   });
+
+  it('reveals pre-stored tokens exactly once per milestone', async () => {
+    const session = await wallet.createSession();
+    await wallet.getDepositQuote(session.sessionId);
+    await wallet.getDepositStatus(session.sessionId);
+    const first = await wallet.unlockToken(session.sessionId, 'hidden-tower');
+    const second = await wallet.unlockToken(session.sessionId, 'hidden-tower');
+    expect(first.token).toBe(second.token);
+    expect(first.issuedAt).toBe(second.issuedAt);
+    const ledger = await wallet.getLedger(session.sessionId);
+    const row = ledger.find((entry) => entry.milestoneId === 'hidden-tower');
+    expect(row?.state).toBe('issued');
+    expect(row?.issuedAt).toBe(first.issuedAt);
+  });
 });

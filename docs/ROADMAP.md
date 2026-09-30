@@ -39,13 +39,13 @@ Phased build plan. Scope: ~30-minute game, one city district, 7 named NPCs,
 
 ## P3 — Real money (Minibits mint)
 
-- [ ] `MinibitsWallet` on `@cashu/coco-core` + `@cashu/coco-sqlite`
-- [ ] Session + claim code ("Trainer ID") + SQLite ledger
-- [ ] NUT-04 mint quote → BOLT11 QR payment screen (countdown, re-quote on expiry)
-- [ ] Mint + NUT-03 pre-split into 10 × (8+2) bundles
-- [ ] Unlock → `cashuA` claim screen (QR + copy + save-for-later)
-- [ ] Claim-code recovery flow + receptionist token bank
-- [ ] Boot-time mint verification (`input_fee_ppk`, endpoints) with soft-fail UX
+- [x] `MinibitsWallet` on `@cashu/coco-core` + `@cashu/coco-sqlite`
+- [x] Session + claim code ("Trainer ID") + SQLite ledger
+- [x] NUT-04 mint quote → BOLT11 QR payment screen (countdown, re-quote on expiry)
+- [x] Mint + NUT-03 pre-split into 10 × (8+2) bundles
+- [x] Unlock → `cashuA` claim screen (QR + copy + save-for-later)
+- [x] Claim-code recovery flow + receptionist token bank
+- [x] Boot-time mint verification (`input_fee_ppk`, endpoints) with soft-fail UX
 
 **Exit:** pay 100 sats → play → claim 100 sats back, all real, on localhost.
 

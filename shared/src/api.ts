@@ -44,3 +44,11 @@ export interface UnlockResponse {
 export interface LedgerResponse {
   ledger: LedgerRow[];
 }
+
+export interface MintInfoResponse {
+  online: boolean;
+  name: string;
+  description: string;
+  feePpk: number;
+  error?: string;
+}

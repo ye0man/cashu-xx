@@ -3,16 +3,12 @@ import { api } from '../systems/api';
 import { hasSave, loadSave } from '../systems/save';
 import { setGameSession } from '../systems/session';
 
-const LOG_START_Y = 170;
-const LOG_LINE_HEIGHT = 16;
-
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export class TitleScene extends Phaser.Scene {
   private started = false;
-  private logIndex = 0;
 
   constructor() {
     super({ key: 'TitleScene' });
@@ -20,10 +16,9 @@ export class TitleScene extends Phaser.Scene {
 
   create(): void {
     this.started = false;
-    this.logIndex = 0;
 
     this.add
-      .text(240, 80, 'CASHU-XX', {
+      .text(240, 72, 'CASHU-XX', {
         fontFamily: 'Courier New',
         fontSize: '40px',
         color: '#e8c9a0',
@@ -31,7 +26,7 @@ export class TitleScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.add
-      .text(240, 118, 'a placeholder nut on the road to merge', {
+      .text(240, 110, 'a placeholder nut on the road to merge', {
         fontFamily: 'Courier New',
         fontSize: '12px',
         color: '#9d5fe0',
@@ -39,32 +34,43 @@ export class TitleScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     const hint = this.add
-      .text(240, 148, 'PRESS ENTER TO PLAY (100 sats, mock wallet)', {
+      .text(240, 148, 'PRESS ENTER TO PLAY — 100 SATS', {
         fontFamily: 'Courier New',
         fontSize: '13px',
         color: '#b0a8bd',
       })
       .setOrigin(0.5);
-
     this.tweens.add({ targets: hint, alpha: 0.35, duration: 700, yoyo: true, repeat: -1 });
 
+    let nextY = 172;
     if (hasSave()) {
       this.add
-        .text(240, 132, 'PRESS C TO CONTINUE', {
+        .text(240, nextY, 'PRESS C TO CONTINUE', {
           fontFamily: 'Courier New',
-          fontSize: '13px',
+          fontSize: '12px',
           color: '#9d5fe0',
         })
         .setOrigin(0.5);
+      nextY += 18;
     }
+    this.add
+      .text(240, nextY, 'PRESS R TO RECOVER WITH TRAINER ID', {
+        fontFamily: 'Courier New',
+        fontSize: '12px',
+        color: '#6b6478',
+      })
+      .setOrigin(0.5);
 
     const keyboard = this.input.keyboard;
     if (keyboard) {
       keyboard.once('keydown-ENTER', () => {
         void this.startGame();
       });
-      keyboard.once('keydown-C', () => {
+      keyboard.on('keydown-C', () => {
         this.continueGame();
+      });
+      keyboard.on('keydown-R', () => {
+        void this.recoverGame();
       });
     }
   }
@@ -82,13 +88,28 @@ export class TitleScene extends Phaser.Scene {
     });
   }
 
-  private log(line: string): void {
-    this.add.text(40, LOG_START_Y + this.logIndex * LOG_LINE_HEIGHT, line, {
-      fontFamily: 'Courier New',
-      fontSize: '11px',
-      color: '#e8c9a0',
-    });
-    this.logIndex += 1;
+  private async recoverGame(): Promise<void> {
+    const code = window.prompt('Enter your Trainer ID (claim code):');
+    if (!code) {
+      return;
+    }
+    try {
+      const recovered = await api.claim(code.trim().toUpperCase());
+      setGameSession({
+        sessionId: recovered.sessionId,
+        authToken: recovered.authToken,
+        claimCode: code.trim().toUpperCase(),
+      });
+      const save = loadSave();
+      this.scene.start('WorldScene', save ? {
+        mapId: save.mapId,
+        tileX: save.tileX,
+        tileY: save.tileY,
+        facing: save.facing,
+      } : { mapId: 'nussstadt' });
+    } catch {
+      window.alert('Unknown Trainer ID. Check the code on your claim screen.');
+    }
   }
 
   private async startGame(): Promise<void> {
@@ -97,22 +118,12 @@ export class TitleScene extends Phaser.Scene {
     }
     this.started = true;
     try {
-      this.log('> creating session...');
       const session = await api.createSession();
       setGameSession(session);
-      this.log(`> trainer id ${session.claimCode}`);
-      this.log('> mint quote: 100 sats (mock)');
-      const quote = await api.deposit(session.sessionId);
-      this.log(`> invoice ${quote.invoice.slice(0, 28)}...`);
-      this.log('> awaiting payment...');
-      const status = await api.depositStatus(session.sessionId);
-      this.log(status.paid ? '> PAID — 10 bundles locked' : '> not paid yet');
-      await delay(700);
-    } catch (err) {
-      this.log(`> server offline (${(err as Error).message})`);
-      this.log('> offline mode: walking only');
-      await delay(1000);
+      await delay(150);
+      this.scene.start('PayScene');
+    } catch {
+      this.scene.start('WorldScene', { mapId: 'nussstadt' });
     }
-    this.scene.start('WorldScene', { mapId: 'nussstadt' });
   }
 }

@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@cashu-xx/shared": "*",
+    "@cashu/coco-core": "^2.0.0",
+    "@cashu/coco-sqlite": "^2.0.0",
     "@fastify/cors": "^11.3.0",
     "better-sqlite3": "^13.0.3",
     "fastify": "^5.12.5",
