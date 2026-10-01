@@ -40,3 +40,13 @@ void mint.refresh().then((info) => {
     'mint verification',
   );
 });
+
+// Warm the wallet in the background so the first player's invoice isn't gated
+// on coco's cold start (repos init + addMint keyset fetch). Never blocks listen.
+if (wallet.warmup) {
+  const startedAt = Date.now();
+  void wallet.warmup().then(
+    () => app.log.info({ ms: Date.now() - startedAt }, 'wallet warmed up'),
+    (err: unknown) => app.log.warn({ err }, 'wallet warmup failed — will retry on first request'),
+  );
+}

@@ -107,8 +107,9 @@ export class PayScene extends Phaser.Scene {
   }
 
   private async boot(): Promise<void> {
-    await this.checkMint();
-    await this.requestQuote();
+    // The invoice doesn't depend on the mint-info banner; fetch both at once so
+    // the QR is never gated on the mint check.
+    await Promise.all([this.checkMint(), this.requestQuote()]);
   }
 
   private async checkMint(): Promise<void> {
@@ -179,7 +180,7 @@ export class PayScene extends Phaser.Scene {
       }
       if (status.bundlesReady) {
         this.proceeding = true;
-        this.statusText.setText('PAID — 10 bundles locked. Good luck, XX.');
+        this.statusText.setText('PAID — 10 tokens reserved. Good luck, XX.');
         this.pollEvent?.remove();
         this.tickEvent?.remove();
         this.time.delayedCall(900, () => {

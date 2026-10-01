@@ -133,9 +133,16 @@ with the session (not the claim code) to keep gameplay calls lightweight.
    button) with a countdown to `quote_expiresAt`.
 3. Client polls `deposit/status` every 2 s (or subscribes via NUT-17 websocket).
 4. When the quote is `PAID`, server **mints** 100 sats of proofs (64 + 32 + 4),
-   then **swaps (NUT-03)** into 10 pre-split bundles of (8 + 2) proofs each,
-   writing all bundle rows (`state=locked`).
-5. `bundlesReady: true` → game starts.
+   then returns `paid`/`bundlesReady` **immediately** and **swaps (NUT-03)** the
+   proofs into 10 bundles of (8 + 2) each **in the background**, writing all
+   bundle rows (`state=locked`) when done.
+5. `bundlesReady: true` → game starts. A token claimed before the background
+   swap finishes makes `/unlock` await the in-flight split (it is idempotent and
+   serialized per session). The ten sequential swaps never gate the payment.
+
+The coco manager is warmed in the background at server start (`wallet.warmup()`),
+so the first player's invoice is not gated on coco's cold start (repos init +
+`addMint` keyset fetch).
 
 Quote expiry handling: on expiry the server requests a fresh quote idempotently
 (old invoice abandoned); the client swaps the QR in place. A player who paid a

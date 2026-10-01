@@ -7,6 +7,7 @@ import {
   type DepositQuote,
   type DepositStatus,
   type MilestoneId,
+  type UnlockResponse,
 } from '@cashu-xx/shared';
 import type { Repo } from '../db/repo';
 import { BaseWallet } from './BaseWallet';
@@ -55,6 +56,11 @@ export class MinibitsWallet extends BaseWallet {
     return manager;
   }
 
+  /** Boot the coco manager ahead of the first player so the cold start (init + addMint) is off the payment path. */
+  async warmup(): Promise<void> {
+    await this.manager();
+  }
+
   async getDepositQuote(sessionId: string): Promise<DepositQuote> {
     const row = this.mustGet(sessionId);
     const manager = await this.manager();
@@ -78,6 +84,12 @@ export class MinibitsWallet extends BaseWallet {
     const row = this.mustGet(sessionId);
     if (row.state === 'minted' && this.repo.hasBundles(row.id)) {
       return { state: 'minted', paid: true, minted: true, bundlesReady: true };
+    }
+    if (row.state === 'paid') {
+      // Payment already confirmed in an earlier poll: the token sends run in the
+      // background, so report ready immediately and (re)kick the split if needed.
+      this.startSplit(row.id);
+      return { state: 'paid', paid: true, minted: false, bundlesReady: true };
     }
     if (!row.mint_op_id) {
       return { state: row.state, paid: false, minted: false, bundlesReady: false };
@@ -103,18 +115,46 @@ export class MinibitsWallet extends BaseWallet {
       return { state: 'awaiting_payment', paid: false, minted: false, bundlesReady: false };
     }
 
+    // Finalized: the 100 sats are minted into the wallet. Hand the player off
+    // now and split into the 10 token bundles in the background — the ten
+    // sequential sends are the slow part and must not gate "paid".
     this.repo.setState(row.id, 'paid');
-    await this.splitLocked(row.id);
-    this.repo.setState(row.id, 'minted');
-    return { state: 'minted', paid: true, minted: true, bundlesReady: true };
+    this.startSplit(row.id);
+    return { state: 'paid', paid: true, minted: false, bundlesReady: true };
+  }
+
+  async unlockToken(sessionId: string, milestoneId: MilestoneId): Promise<UnlockResponse> {
+    const row = this.mustGet(sessionId);
+    if (!MILESTONE_IDS.includes(milestoneId)) {
+      throw new WalletError('invalid', `unknown milestone "${milestoneId}"`);
+    }
+    if (!this.repo.hasBundles(row.id)) {
+      if (row.state !== 'paid' && row.state !== 'minted') {
+        throw new WalletError('not_ready', 'token not prepared yet — deposit first');
+      }
+      // A token may be requested before the background split has finished.
+      await this.splitLocked(row.id);
+    }
+    return super.unlockToken(sessionId, milestoneId);
+  }
+
+  /** Fire-and-forget split for the status poll; errors surface on the next await (unlock or poll). */
+  private startSplit(sessionId: string): void {
+    void this.splitLocked(sessionId).catch((err: unknown) => {
+      console.error('token split failed', sessionId, err);
+    });
   }
 
   private splitLocked(sessionId: string): Promise<void> {
     let pending = this.splits.get(sessionId);
     if (!pending) {
-      pending = this.splitIntoBundles(sessionId).finally(() => {
-        this.splits.delete(sessionId);
-      });
+      pending = this.splitIntoBundles(sessionId)
+        .then(() => {
+          this.repo.setState(sessionId, 'minted');
+        })
+        .finally(() => {
+          this.splits.delete(sessionId);
+        });
       this.splits.set(sessionId, pending);
     }
     return pending;

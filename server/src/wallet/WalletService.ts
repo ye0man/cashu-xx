@@ -28,4 +28,6 @@ export interface WalletService {
   getDepositStatus(sessionId: string): Promise<DepositStatus>;
   unlockToken(sessionId: string, milestoneId: MilestoneId): Promise<UnlockResponse>;
   getLedger(sessionId: string): Promise<LedgerRow[]>;
+  /** Optional: boot expensive wallet dependencies ahead of the first request. */
+  warmup?(): Promise<void>;
 }
