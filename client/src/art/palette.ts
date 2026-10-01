@@ -1,5 +1,5 @@
 /**
- * World palette — soft Game Boy Color tones in the spirit of New Bark Town
+ * World palette — soft Game Boy Color tones in a classic 8-bit RPG spirit
  * (pale speckled ground, fresh greens, lavender water) with Cashu purple kept
  * as the accent that ties the world to the UI.
  */

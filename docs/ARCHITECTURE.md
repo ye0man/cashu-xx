@@ -201,7 +201,7 @@ re-displays QRs on demand — redemption UI as game content.
 ## 10. Art & audio pipeline
 
 **Visual art is hand-authored pixel data**, not generated images (v2 face-lift, inspired
-by Pokémon Crystal's New Bark Town). It lives in `client/src/art/` and has no DOM
+by classic GBC-era town RPGs). It lives in `client/src/art/` and has no DOM
 dependency:
 
 - `bitmap.ts` — tiny RGBA `Bitmap` + `ascii(rows, legend)`: art is drawn as rows of

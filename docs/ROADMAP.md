@@ -58,7 +58,7 @@ Phased build plan. Scope: ~30-minute game, one city district, 7 named NPCs,
 - [x] 8 chiptune tracks + SFX (text, menu, door, item jingle, token sting)
 - [x] Night palette swap (multiply-overlay night mode, N toggles)
 
-**Exit:** it looks and sounds like Pokémon Crystal's weird Cashu cousin.
+**Exit:** it looks and sounds like a weird 8-bit Cashu cousin.
 
 ## P5 — Polish & release
 

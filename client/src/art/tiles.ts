@@ -43,7 +43,7 @@ function rect(b: Bitmap, x0: number, y0: number, x1: number, y1: number, color: 
 
 // ---------------------------------------------------------------- outdoors
 
-/** Pale ground with a sparse, perfectly regular dot grid (New Bark Town style). */
+/** Pale ground with a sparse, perfectly regular dot grid (classic RPG town style). */
 export function groundTile(): Bitmap {
   return cached('ground', () => {
     const b = blank(C.ground);

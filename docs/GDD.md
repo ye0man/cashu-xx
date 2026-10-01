@@ -1,6 +1,6 @@
 # Cashu-XX — Game Design Document v0.1
 
-> A 30-minute, Pokémon Crystal–style Game Boy Color RPG in the browser.
+> A 30-minute, Game Boy Color–style 8-bit RPG in the browser.
 > You are **XX** — a nut with sunglasses and no NUT number, a walking placeholder.
 > Pay a 100-sat invoice, walk around **Nussstadt** (a Berlin-inspired 8-bit city),
 > follow the real [CONTRIBUTING.md](https://github.com/cashubtc/nuts/blob/main/CONTRIBUTING.md)
@@ -16,7 +16,7 @@
 
 - **Genre:** top-down tile RPG, single-player, browser (desktop keyboard-first).
 - **Length:** ~30 min to credits, ~45 min to 100% completion.
-- **Reference feel:** Pokémon Crystal (GBC) — grid movement, 2-frame walk bob,
+- **Reference feel:** classic GBC-era RPGs — grid movement, 2-frame walk bob,
   typewriter text boxes, enterable buildings, signs, item jingles, one city to
   learn by heart.
 - **Integration:** entry is a real BOLT11 invoice on the Minibits mint; rewards are
@@ -32,7 +32,7 @@ assigned by maintainers before merge."* That is your character arc.
 1. **The process is the plot.** Every quest maps 1:1 to CONTRIBUTING.md
    (issue → PR → reviews → implementation PRs → merge). The in-game journal reads
    like the PR checklist because it is the PR checklist.
-2. **Quick, fun, engaging.** 2–4 minute challenges, Pokémon-style 2–3 line text
+2. **Quick, fun, engaging.** 2–4 minute challenges, classic 8-bit 2–3 line text
    boxes, no walls of text, no fail states.
 3. **Real ecash or nothing.** The player's 100 sats come back as 10 real cashu
    tokens. Everything the game teaches is something the player holds in their hand
@@ -203,7 +203,7 @@ At the Numo POS terminal in Café Mint, pressing the action button says exactly:
 All art is AI-generated (decision locked), then mechanically normalized:
 
 - **Locked style bible:** GBC-era pixel art, 16×16 tiles, 16×24 characters,
-  2-frame walk bob (Crystal style), strict **16-color palette** derived from the
+  2-frame walk bob (classic style), strict **16-color palette** derived from the
   Cashu logo (purple `#7B2FBE` family, cream `#E8C9A0`, ink black, plus brick
   red, water blue, moss green, warm greys).
 - **Pipeline per asset:** generate at high res with pinned prompt + seed →

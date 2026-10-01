@@ -1,10 +1,10 @@
 # Cashu-XX
 
 <p align="center">
-  <img src="docs/img/keyart.png" alt="Cashu-XX key art: a pixel-art nut hero walking through an 8-bit Berlin-inspired city" width="720" />
+  <img src="docs/screenshots/1-title.png" alt="Cashu-XX title screen: the Cashu nut logo on a purple field with the game title" width="720" />
 </p>
 
-A Pokémon Crystal–style 8-bit browser RPG about getting merged into the Cashu spec.
+An 8-bit browser RPG about getting merged into the Cashu spec.
 
 You are **XX** — a nut with sunglasses and no NUT number, a walking placeholder
 (`NUT-XX`). Pay a 100-sat invoice to enter **Nussstadt**, a Berlin-inspired city
@@ -58,7 +58,7 @@ small amounts only).
 
 - **Client:** Phaser 4 · TypeScript · Vite
 - **Server:** Node · Fastify · SQLite · [`@cashu/coco-core`](https://github.com/cashubtc/coco) + `@cashu/coco-sqlite`
-- **Art:** hand-authored GBC pixel art as code ([`client/src/art/`](client/src/art/)), inspired by New Bark Town; XX is drawn from the Cashu logo
+- **Art:** hand-authored GBC pixel art as code ([`client/src/art/`](client/src/art/)), inspired by classic 8-bit town RPGs; XX is drawn from the Cashu logo
 - **Audio:** 8-bit generated tracks + SFX
 
 ## Development

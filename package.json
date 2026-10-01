@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "A Pokemon Crystal-style 8-bit browser RPG about getting merged into the Cashu spec.",
+  "description": "An 8-bit browser RPG about getting merged into the Cashu spec.",
   "workspaces": [
     "shared",
     "server",
