@@ -232,7 +232,7 @@ dependency:
 
 The earlier AI-image pipeline (`tools/src/image.ts`, `sheet-assemble.ts`, `palette-qa.ts`;
 raw generations in `assets/gen/`, provenance in `assets/manifest.json`) is kept for
-promo/key art only.
+key art only.
 
 - Audio: Stable Audio 2.5 chiptune prompts (30s loops) + 2 generated jingles → ffmpeg
   transcode to mp3; Freesound CC0 for menu/door SFX. All in `client/public/assets/audio/`.

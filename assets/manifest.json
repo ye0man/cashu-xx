@@ -1085,43 +1085,10 @@
       "cost_usd": 0.025,
       "checksum": "sha256:dc1f6b4e31ce3fa6c843255b2e92c7f95a945655834d26e310bba6cea0a29353",
       "notes": "README key art banner"
-    },
-    {
-      "id": "ast_0037",
-      "kind": "generated",
-      "path": "assets/gen/keyart-clip.mp4",
-      "source": {
-        "provider": "fal",
-        "url": "https://v3b.fal.media/files/b/0aac7fe6/yus3NGEO-ty79RCUtMMWx_output.mp4",
-        "license": "fal / model provider terms",
-        "license_url": "",
-        "attribution_required": false,
-        "commercial_ok": true
-      },
-      "generation": {
-        "provider": "fal",
-        "model": "fal-ai/kling-video/v2.5-turbo/pro/image-to-video",
-        "prompt": "The pixel art hero walks slowly forward through the 8-bit city street, gentle parallax, twinkling pixel lights in the windows, subtle camera push-in, retro game title screen mood, crisp pixels preserved",
-        "seed": null,
-        "params": {
-          "duration": 5,
-          "image_url": "https://v3b.fal.media/files/b/0aac7fa5/13BEkJH0D2ts24eCffrFm.jpg"
-        }
-      },
-      "specs": {
-        "duration": 5.042,
-        "width": 1920,
-        "height": 1080,
-        "fps": 24.0,
-        "codec": "h264"
-      },
-      "cost_usd": 0.3,
-      "checksum": "sha256:4a4b1c68802a001c0acdaeb6b1e4bc9d17f5c0f771042150bc3c3438c121f04a",
-      "notes": "README promo clip from key art"
     }
   ],
   "totals": {
-    "count": 37,
-    "cost_usd": 1.8425
+    "count": 36,
+    "cost_usd": 1.5425
   }
 }

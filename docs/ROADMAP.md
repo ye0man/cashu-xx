@@ -65,7 +65,7 @@ Phased build plan. Scope: ~30-minute game, one city district, 7 named NPCs,
 - [x] Ending sequence + 100% completion tracking (all 10 tokens)
 - [x] Accessibility pass (text speed, mute, QR polarity, copy fallbacks, Trainer ID on payment screen)
 - [x] Playtest: timing, hint quality, QR scanability on real wallets (real-mint E2E verified manually)
-- [x] README screenshots + promo clip (gameplay screen-record still a nice-to-have)
+- [x] README screenshots (gameplay screen-record still a nice-to-have)
 - [x] Decide hosting: **local for now** — later self-hosted on the owner's own website
 
 **Exit:** shippable v1 on localhost.

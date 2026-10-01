@@ -27,8 +27,6 @@ milestones and found hidden around the city. Scan them with any cashu wallet.
 | --- | --- |
 | <img src="docs/screenshots/4-dialog.png" alt="A sign dialog: a proof is a promise from the mint" width="360" /> | <img src="docs/screenshots/5-lab.png" alt="Professor Hickory's lab interior" width="360" /> |
 
-Promo clip: [docs/media/promo.mp4](docs/media/promo.mp4)
-
 ## Status
 
 v1 complete (P0–P5) — real Minibits mint integration: pay 100 sats, play, claim
@@ -100,8 +98,8 @@ and reclaims a previous withdrawal token too, so you always end up with one.
 ## Credits & licenses
 
 - Game design, code, and pixel pipeline: this repo (MIT or TBD).
-- In-game pixel art is hand-authored in code (`client/src/art/`). Key art and the promo
-  clip were generated via fal.ai; music and jingles generated with
+- In-game pixel art is hand-authored in code (`client/src/art/`). Key art was
+  generated via fal.ai; music and jingles generated with
   Stable Audio 2.5; all generation provenance in
   [`assets/manifest.json`](assets/manifest.json).
 - SFX "Videogame Menu Select" by Fupicat and "Wooden door open-close" by Ryding
