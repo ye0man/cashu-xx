@@ -112,6 +112,16 @@ export class Repo {
       .run(at, at, sessionId, milestoneId);
   }
 
+  markReclaimed(sessionId: string, milestoneId: MilestoneId): void {
+    this.db
+      .prepare(`UPDATE bundles SET state = 'reclaimed' WHERE session_id = ? AND milestone_id = ?`)
+      .run(sessionId, milestoneId);
+  }
+
+  listAllBundles(): BundleRow[] {
+    return this.db.prepare('SELECT * FROM bundles ORDER BY rowid').all() as BundleRow[];
+  }
+
   listBundles(sessionId: string): BundleRow[] {
     return this.db.prepare('SELECT * FROM bundles WHERE session_id = ? ORDER BY rowid').all(sessionId) as BundleRow[];
   }

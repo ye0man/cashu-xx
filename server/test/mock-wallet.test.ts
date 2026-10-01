@@ -64,6 +64,18 @@ describe('MockWallet', () => {
     expect(await wallet.authenticate('nope', session.authToken)).toBe(false);
   });
 
+  it('refuses to reveal a token the operator has withdrawn', async () => {
+    const repo = new Repo(':memory:');
+    const owned = new MockWallet(repo);
+    const session = await owned.createSession();
+    await owned.getDepositQuote(session.sessionId);
+    await owned.getDepositStatus(session.sessionId);
+    repo.markReclaimed(session.sessionId, 'impl-rusty');
+    await expect(owned.unlockToken(session.sessionId, 'impl-rusty')).rejects.toMatchObject({
+      code: 'reclaimed',
+    });
+  });
+
   it('reveals pre-stored tokens exactly once per milestone', async () => {
     const session = await wallet.createSession();
     await wallet.getDepositQuote(session.sessionId);

@@ -88,3 +88,4 @@ alongside the deployed server — it holds player claim codes.
 - Day/night NPC schedules
 - itch.io build with remote API backend
 - A `NUT-XX.md` readable in Hickory's lab (fictional RFC 2119 draft)
+- Give mock mode its own database (currently shares `server/data/cashu-xx.db` with real)

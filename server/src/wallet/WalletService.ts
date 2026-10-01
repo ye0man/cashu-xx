@@ -8,7 +8,7 @@ import type {
   UnlockResponse,
 } from '@cashu-xx/shared';
 
-export type WalletErrorCode = 'not_found' | 'unauthorized' | 'not_ready' | 'invalid';
+export type WalletErrorCode = 'not_found' | 'unauthorized' | 'not_ready' | 'invalid' | 'reclaimed';
 
 export class WalletError extends Error {
   constructor(

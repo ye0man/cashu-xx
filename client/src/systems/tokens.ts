@@ -3,13 +3,14 @@ import { MILESTONE_LABELS } from '@cashu-xx/shared';
 import type { DialogManager } from '../ui/DialogManager';
 import type { QRPanel } from '../ui/QRPanel';
 import { audio } from './audio';
-import { api } from './api';
+import { api, ApiError } from './api';
 import { earnedMilestones, setFlag } from './quests';
 import { getGameSession } from './session';
 
 export interface TokenResult {
   token: string | null;
   offline: boolean;
+  reclaimed?: boolean;
 }
 
 export interface ClaimUI {
@@ -28,7 +29,10 @@ export async function unlockMilestone(milestoneId: MilestoneId): Promise<TokenRe
   try {
     const result: UnlockResponse = await api.unlock(session.sessionId, milestoneId);
     return { token: result.token, offline: false };
-  } catch {
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 410 || err.code === 'reclaimed')) {
+      return { token: null, offline: false, reclaimed: true };
+    }
     return { token: null, offline: true };
   }
 }
@@ -60,6 +64,12 @@ export function tokenLines(milestoneId: MilestoneId, result: TokenResult): strin
     return [
       `TOKEN UNLOCKED — ${label} — 10 sats.`,
       `Claim it in any cashu wallet: ${result.token.slice(0, 42)}...`,
+    ];
+  }
+  if (result.reclaimed) {
+    return [
+      `TOKEN WITHDRAWN — ${label}.`,
+      'The operator reclaimed these sats, so this token is no longer claimable. Sorry!',
     ];
   }
   return [`TOKEN UNLOCKED — ${label} — 10 sats.`, 'Ask the receptionist at Minibits HQ to display it.'];

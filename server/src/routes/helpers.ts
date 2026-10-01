@@ -17,8 +17,17 @@ export function makeGuard(wallet: WalletService): RouteGuard {
 
 export function mapWalletError(reply: FastifyReply, err: unknown): FastifyReply {
   if (err instanceof WalletError) {
-    const status = err.code === 'not_found' ? 404 : err.code === 'unauthorized' ? 401 : err.code === 'not_ready' ? 409 : 400;
-    return reply.code(status).send({ error: err.message });
+    const status =
+      err.code === 'not_found'
+        ? 404
+        : err.code === 'unauthorized'
+          ? 401
+          : err.code === 'not_ready'
+            ? 409
+            : err.code === 'reclaimed'
+              ? 410
+              : 400;
+    return reply.code(status).send({ error: err.message, code: err.code });
   }
   if (err instanceof ZodError) {
     return reply.code(400).send({ error: 'invalid request body' });

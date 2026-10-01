@@ -7,11 +7,13 @@ import { MockWallet } from '../src/wallet/MockWallet';
 
 describe('API', () => {
   let app: FastifyInstance;
+  let repo: Repo;
   let session: CreateSessionResponse;
 
   beforeAll(async () => {
+    repo = new Repo(':memory:');
     app = await buildApp({
-      wallet: new MockWallet(new Repo(':memory:')),
+      wallet: new MockWallet(repo),
       clientOrigin: 'http://localhost:5173',
       logger: false,
     });
@@ -77,5 +79,24 @@ describe('API', () => {
     });
     expect(recovered.statusCode).toBe(200);
     expect(recovered.json().sessionId).toBe(session.sessionId);
+  });
+
+  it('returns 410 for a token the operator withdrew', async () => {
+    const created = await app.inject({ method: 'POST', url: '/api/session' });
+    const fresh: CreateSessionResponse = created.json();
+    const headers = { authorization: `Bearer ${fresh.authToken}` };
+    await app.inject({ method: 'GET', url: `/api/session/${fresh.sessionId}/deposit`, headers });
+    await app.inject({ method: 'GET', url: `/api/session/${fresh.sessionId}/deposit/status`, headers });
+
+    // Mark a bundle reclaimed as the withdraw CLI would, then try to claim it.
+    repo.markReclaimed(fresh.sessionId, 'ceremony');
+    const unlock = await app.inject({
+      method: 'POST',
+      url: `/api/session/${fresh.sessionId}/unlock`,
+      headers,
+      payload: { milestoneId: 'ceremony' },
+    });
+    expect(unlock.statusCode).toBe(410);
+    expect(unlock.json().code).toBe('reclaimed');
   });
 });

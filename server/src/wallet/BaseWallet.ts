@@ -63,6 +63,9 @@ export abstract class BaseWallet implements WalletService {
     if (!bundle || bundle.token === null) {
       throw new WalletError('not_ready', 'token not prepared yet — deposit first');
     }
+    if (bundle.state === 'reclaimed') {
+      throw new WalletError('reclaimed', 'the operator withdrew the sats for this token');
+    }
     if (bundle.state === 'issued' && bundle.issued_at !== null) {
       return { milestoneId, token: bundle.token, issuedAt: bundle.issued_at };
     }

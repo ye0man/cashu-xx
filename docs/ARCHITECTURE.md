@@ -246,6 +246,22 @@ npm test               # Vitest (server wallet tests run against MockWallet)
 `dev` uses the mock wallet so ordinary gameplay iteration costs nothing;
 `dev:real` exercises the real mint end-to-end (a full test costs 100 sats + routing).
 
+### Operator withdrawal (unclaimed ecash)
+
+`server/src/admin/wallet-cli.ts` (`npm run wallet -w server -- <balance|withdraw>`)
+sweeps every unredeemed token back into the operator wallet and re-issues the whole
+balance as one token. It shares coco setup with the server via
+`server/src/wallet/coco.ts`; it refuses to run while the server is up (single-writer
+SQLite), backs up both databases first, and is idempotent. Matching is done in
+`server/src/admin/withdraw.ts` by comparing the in-flight send's proof secrets to each
+game bundle's decoded token, so already-redeemed tokens are skipped and a previous
+withdrawal token is picked up as an orphan send. Reclaimed bundles are marked
+`reclaimed`; the unlock endpoint returns HTTP 410 for them.
+
+Note: mock and real modes currently share `server/data/cashu-xx.db`, so mock rows live
+beside real ones (they are ignored, being undecodable for our mint). Giving mock its own
+database is a known follow-up.
+
 ## 12. Deferred / non-goals (v1)
 
 - No accounts, no multiplayer, no server-side game state beyond the token ledger.

@@ -7,6 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "dev:real": "tsx watch src/index.ts --wallet=minibits",
     "start": "tsx src/index.ts",
+    "wallet": "tsx src/admin/wallet-cli.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
@@ -17,9 +18,11 @@
     "@fastify/cors": "^11.3.0",
     "better-sqlite3": "^13.0.3",
     "fastify": "^5.12.5",
+    "qrcode": "^1.5.4",
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^9.6.0"
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/qrcode": "^1.5.6"
   }
 }

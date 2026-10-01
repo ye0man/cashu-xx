@@ -14,6 +14,7 @@ export class ApiError extends Error {
   constructor(
     public readonly status: number,
     message: string,
+    public readonly code?: string,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -51,10 +52,14 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   }
   if (!res.ok) {
     let reason = `HTTP ${res.status}`;
+    let code: string | undefined;
     try {
-      const body = (await res.json()) as { error?: unknown };
+      const body = (await res.json()) as { error?: unknown; code?: unknown };
       if (typeof body?.error === 'string') {
         reason = body.error;
+      }
+      if (typeof body?.code === 'string') {
+        code = body.code;
       }
     } catch {
       // non-JSON body (e.g. the Vite proxy's own error page)
@@ -62,7 +67,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
         reason = 'game server not reachable — is `npm run dev:real` running?';
       }
     }
-    throw new ApiError(res.status, reason);
+    throw new ApiError(res.status, reason, code);
   }
   return (await res.json()) as T;
 }

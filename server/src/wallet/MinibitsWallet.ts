@@ -1,8 +1,5 @@
-import { randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import path from 'node:path';
-import { ConsoleLogger, initializeCoco, type Manager } from '@cashu/coco-core';
-import { SqliteRepositories } from '@cashu/coco-sqlite';
+import { mkdirSync } from 'node:fs';
+import type { Manager } from '@cashu/coco-core';
 import {
   ENTRY_AMOUNT_SATS,
   MILESTONE_IDS,
@@ -11,9 +8,9 @@ import {
   type DepositStatus,
   type MilestoneId,
 } from '@cashu-xx/shared';
-import Database from 'better-sqlite3';
 import type { Repo } from '../db/repo';
 import { BaseWallet } from './BaseWallet';
+import { openCocoManager } from './coco';
 import { WalletError } from './WalletService';
 
 export interface MinibitsWalletOptions {
@@ -26,17 +23,6 @@ function normalizeExpiry(expiry: number | null | undefined): number {
     return Date.now() + 10 * 60 * 1000;
   }
   return expiry < 1e12 ? expiry * 1000 : expiry;
-}
-
-export function loadOrCreateSeed(dataDir: string): Uint8Array {
-  mkdirSync(dataDir, { recursive: true });
-  const seedPath = path.join(dataDir, 'wallet-seed.bin');
-  if (existsSync(seedPath)) {
-    return new Uint8Array(readFileSync(seedPath));
-  }
-  const seed = randomBytes(64);
-  writeFileSync(seedPath, seed);
-  return new Uint8Array(seed);
 }
 
 export class MinibitsWallet extends BaseWallet {
@@ -65,16 +51,7 @@ export class MinibitsWallet extends BaseWallet {
   }
 
   private async boot(): Promise<Manager> {
-    const seed = loadOrCreateSeed(this.dataDir);
-    const sqlite = new Database(path.join(this.dataDir, 'coco.db'));
-    const repos = new SqliteRepositories({ database: sqlite });
-    await repos.init();
-    const manager = await initializeCoco({
-      repo: repos,
-      seedGetter: async () => seed,
-      logger: new ConsoleLogger('cashu-xx', { level: 'warn' }),
-    });
-    await manager.mint.addMint(this.mintUrl, { trusted: true });
+    const { manager } = await openCocoManager({ mintUrl: this.mintUrl, dataDir: this.dataDir });
     return manager;
   }
 
