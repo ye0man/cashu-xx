@@ -53,12 +53,13 @@ export interface WithdrawPlan {
 }
 
 export function planWithdraw(bundles: BundleTokenInfo[], sends: SendOpInfo[]): WithdrawPlan {
-  // A combined bundle's sats were re-sent as one token, so like reclaimed it is
-  // dead to the operator sweep. An in-progress combine (`combining`) is also dead
-  // here: the sweep is taking over the wallet, so its sends are reclaimed into
-  // the withdrawal and a later combine must not reissue them.
+  // A combined/melted bundle's sats were re-sent or paid out, so like reclaimed
+  // it is dead to the operator sweep. An in-progress combine/melt (`combining`,
+  // `melting`) is also dead here: the sweep is taking over the wallet, so its
+  // sends are reclaimed into the withdrawal and a later operation must not
+  // reissue them.
   const dead = (bundle: BundleTokenInfo): boolean =>
-    isDeadBundleState(bundle.state) || bundle.state === 'combining';
+    isDeadBundleState(bundle.state) || bundle.state === 'combining' || bundle.state === 'melting';
   const bySecret = new Map<string, BundleTokenInfo>();
   for (const bundle of bundles) {
     if (dead(bundle) || !bundle.secrets) {

@@ -5,6 +5,8 @@ import type {
   DepositQuote,
   DepositStatus,
   LedgerResponse,
+  MeltPreviewResponse,
+  MeltResponse,
   MilestoneId,
   MintInfoResponse,
   MintListResponse,
@@ -93,6 +95,14 @@ export const api = {
       auth: true,
     }),
   ledger: (sessionId: string) => request<LedgerResponse>(`/api/session/${sessionId}/ledger`, { auth: true }),
+  meltPreview: (sessionId: string) =>
+    request<MeltPreviewResponse>(`/api/session/${sessionId}/melt`, { auth: true }),
+  melt: (sessionId: string, destination: string, milestoneIds?: MilestoneId[]) =>
+    request<MeltResponse>(`/api/session/${sessionId}/melt`, {
+      method: 'POST',
+      body: milestoneIds ? { destination, milestoneIds } : { destination },
+      auth: true,
+    }),
   claim: (claimCode: string) =>
     request<ClaimResponse>('/api/session/claim', { method: 'POST', body: { claimCode } }),
   mintInfo: (url?: string) =>

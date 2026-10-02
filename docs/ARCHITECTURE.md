@@ -77,10 +77,12 @@ interface WalletService {
   manager serves every mint: each session is locked to a mint URL (default
   Minibits), and the mint's keysets are added lazily (`manager.mint.addMint`) on
   first use. `createSession` verifies the chosen mint (NUT-06 + NUT-02) and
-  rejects only unreachable mints. Fee-bearing mints are supported: the split
-  measures the per-send input fee and shaves it off each bundle, so the player
-  redeems the entry amount **net of fees** (e.g. a 1-sat fee yields ten 9-sat
-  tokens) instead of the last send failing.
+  rejects only unreachable mints. Mint quotes are **NUT-20 locked** when the mint
+  supports it, which both secures the quote and avoids a coco bug where a mint
+  returning `pubkey: ""` is rejected as an ownership conflict (Coinos). Fee-bearing
+  mints are supported: the split measures the per-send input fee and shaves it off
+  each bundle, so the player redeems the entry amount **net of fees**. Payout is a
+  real NUT-05 **melt** to a Lightning address or bolt11 invoice (see §7).
   **Fallback library:** `@cashu/cashu-ts` if coco hits rough edges (same interface).
 - **`MockWallet`** — dev/test. Instantly marks deposits paid and fabricates
   plausible `cashuA` strings. Selected with `WALLET=mock`. Same interface, so all
@@ -103,14 +105,18 @@ CREATE TABLE sessions (
   mint_url TEXT,                  -- normalized mint this session is locked to
   quote_id TEXT, invoice TEXT, quote_expires_at INTEGER,
   state TEXT NOT NULL,            -- created | awaiting_payment | paid | minted
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  melt_destination TEXT,          -- Lightning address / bolt11 invoice
+  melt_op_id TEXT,                -- in-flight melt op (idempotent resume)
+  melt_state TEXT,                -- pending | melted | failed
+  melt_amount_sats INTEGER, melt_fee_sats INTEGER, melt_preimage TEXT
 );
 
 CREATE TABLE bundles (
   session_id TEXT NOT NULL,
   milestone_id TEXT NOT NULL,     -- one of the 10 stable keys
   token TEXT,                     -- serialized cashuA payload (issued once)
-  state TEXT NOT NULL,            -- locked | unlocked | issued | combining | reclaimed | combined
+  state TEXT NOT NULL,            -- locked | unlocked | issued | combining | combined | melting | melted
   unlocked_at INTEGER, issued_at INTEGER,
   PRIMARY KEY (session_id, milestone_id)
 );
@@ -118,6 +124,9 @@ CREATE TABLE bundles (
 
 - **Issue-once semantics:** `token` is generated at unlock time and never
   regenerated; re-requesting an issued bundle returns the same payload.
+- **Terminal bundle states:** `reclaimed` (operator swept), `combined`, and
+  `melted` (paid to the player's Lightning wallet) can never be claimed again.
+  `combining`/`melting` are in-progress and recoverable.
 - Tokens and claim codes are **never logged** (redact in Fastify pino config).
 
 ## 5. HTTP API
@@ -130,6 +139,8 @@ CREATE TABLE bundles (
 | `GET` | `/api/session/:id/deposit` | Mint quote for 100 sats → `{ invoice, quoteId, expiresAt }` |
 | `GET` | `/api/session/:id/deposit/status` | `{ state: awaiting_payment\|paid\|minted, bundlesReady }` |
 | `POST` | `/api/session/:id/unlock` | `{ milestoneId }` → `{ token }` (idempotent) |
+| `GET` | `/api/session/:id/melt` | `{ availableSats, bundleCount, meltedSats }` preview |
+| `POST` | `/api/session/:id/melt` | `{ destination, milestoneIds? }` → NUT-05 melt to a Lightning address / invoice |
 | `POST` | `/api/session/:id/combine` | `{ milestoneIds }` → one combined `{ token }` (recoverable) |
 | `GET` | `/api/session/:id/ledger` | Bundle states for the journal/token UI |
 | `POST` | `/api/session/claim` | `{ claimCode }` → `{ sessionId, ledger, mintUrl }` (recovery) |
@@ -166,49 +177,46 @@ Quote expiry handling: on expiry the server requests a fresh quote idempotently
 dead invoice can recover via claim code (server checks any pending quotes on
 recovery).
 
-## 7. Unlock & redemption flow
+## 7. Unlock & payout flow
 
 1. Milestone event in the client (challenge passed, item found, ceremony) →
    `POST /unlock { milestoneId }`.
-2. Server marks the bundle `unlocked`, serializes its two proofs into a `cashuA`
-   token string, stores it, marks `issued`, and returns it.
-3. Client shows the **ClaimScreen**: full-screen high-contrast QR of the token
-   string + **Copy token** button + "Save for later" (bundle stays listed until
-   the player confirms receipt; bearer semantics mean confirmation is cosmetic —
-   the payload is never re-issued).
-4. The player scans with Minibits / Cashu.me / eNuts / any wallet that accepts
-   token QRs, or pastes the string.
+2. Server marks the bundle `unlocked`, serializes its proofs into a `cashuA`
+   token string, stores it, marks `issued`, and returns it. The client treats
+   this as a **secured** token (a toast + "cash out with Prof. Hickory"); the
+   token string is no longer shown as a QR.
+3. **Melt (the payout):** Prof. Hickory's `POST /api/session/:id/melt` is a real
+   NUT-05 melt to a Lightning address (LNURL-pay) or bolt11 invoice. The player
+   can cash out early (earned tokens only) or at the ending (everything left):
+   1. Resolve the destination (LN address → request an invoice for the affordable
+      amount; bolt11 passthrough) and create a melt quote; read `fee_reserve` and
+      re-invoice once if the fee makes it unaffordable.
+   2. Mark target bundles `melting` (intent), reclaim their in-flight sends, then
+      `ops.melt.prepare`/`execute`.
+   3. On finalize, mark the bundles `melted` and persist amount/fee/preimage on the
+      session; the preimage is the proof the player was paid.
+   An in-flight melt is resumed (never paid twice) via the stored `melt_op_id`; a
+   failed attempt leaves the bundles `melting` and the reclaimed sats spendable,
+   so a retry finishes the job. The `MeltScene`/Hickory flow then runs
+   `EndingScene` with the amount received.
 
-**In-world token bank:** the Minibits HQ receptionist lists unclaimed bundles and
-re-displays QRs on demand — redemption UI as game content.
+**In-world token bank (status only):** the Minibits HQ receptionist lists which
+tokens are secured and points the player to Hickory for the melt. There is no
+per-token QR claim any more — melts made the manual flow unnecessary.
 
-**Combine (receptionist):** `POST /api/session/:id/combine` folds the requested
-tokens into one. Because the sats backing each bundle are locked in its own
-in-flight send, combining must first *reclaim* those sends — which spends the
-individual tokens at the mint — and then re-send the total once. Reclaiming is
-irreversible, so the flow is written to be recoverable:
-
-1. Mark every target bundle `combining` (intent, persisted before anything is
-   spent).
-2. Reclaim each backing send (or fold in a bundle already reclaimed by a prior
-   attempt).
-3. Send the aggregate token, then mark the bundles `combined`.
-
-If step 3 fails (mint down / rate-limited) the bundles stay `combining`: the
-reclaimed sats are sitting in the server wallet as spendable balance, and the
-next combine — from any milestone, since `combining` bundles are always pulled
-into the target set — finishes issuing the combined token instead of reporting
-"no combinable tokens". `unlock` returns HTTP 409 while a bundle is `combining`.
-The operator sweep treats `combining` as dead and marks it `reclaimed`, so a
-later combine can never reissue sats the sweep already took.
+**Combine (legacy, unused by the UI):** `POST /api/session/:id/combine` still
+exists and folds requested tokens into one. It first *reclaims* the backing
+sends (irreversible), so it is written to be recoverable: mark `combining`,
+reclaim each send, send the aggregate, mark `combined`. A failure leaves bundles
+`combining` with their sats spendable; a later combine sweeps them in. `unlock`
+returns HTTP 409 while a bundle is `combining`/`melting`. The operator sweep
+treats both as dead and marks them `reclaimed`.
 
 **QR format notes:**
 
 - Entry: raw `lnbc…` invoice QR (Lightning wallets accept it universally).
-- Exit: raw `cashuA…` token QR. 2-proof tokens are small enough for a static QR;
-  NUT-16 animated QR is not needed (revisit if bundle sizes grow).
-- Copy fallback is always on screen — token QR scanning is not universally
-  supported across cashu wallets, and that's fine.
+- Exit: no token QR — sats leave via the melt. The operator CLI still writes a
+  `cashuA` token per mint to `server/data/withdrawals/` for manual sweeping.
 
 ## 8. Trust & safety model
 
@@ -222,7 +230,8 @@ later combine can never reissue sats the sweep already took.
 - The mint is a BETA best-effort service (per its own `/v1/info` MOTD). The game
   shows this on the payment screen ("mint is best-effort — use small amounts").
 - Amounts are deliberately trivial (100 sats). No balances, no deposits beyond
-  the entry invoice, no withdrawals through the game.
+  the entry invoice. The only payout is the end-of-run melt to the player's own
+  Lightning wallet (or the operator sweep of untouched tokens).
 
 ## 9. Client architecture
 
@@ -232,6 +241,10 @@ later combine can never reissue sats the sweep already took.
 - **Mint picker:** `MintScene` lists `GET /api/mints` (label, host, live status,
   fee), verifies pasted URLs via `GET /api/mint?url=`, and stores the choice for
   the next run in memory (`systems/mint.ts`) before the session is created.
+- **Payout:** `systems/melt.ts` drives the cash-out (`GET`/`POST …/melt`), prompts
+  for a Lightning address / invoice (remembered in localStorage), and runs from
+  Hickory. The token bank is a read-only status board; the old per-token QR panel
+  and combine option are gone from the client.
 - **Movement system:** tile-locked stepping, 8 px/tile substeps for smoothness,
   collision from Tiled object layers, door warps as tile objects with target map +
   spawn coordinates.
@@ -299,7 +312,7 @@ fee comes out of the player's payout.
 
 ### Operator withdrawal (unclaimed ecash)
 
-`server/src/admin/wallet-cli.ts` (`npm run wallet -w server -- <balance|withdraw>`)
+`server/src/admin/wallet-cli.ts` (`npm run wallet -w server -- <balance|withdraw|recycle>`)
 sweeps every unredeemed token back into the operator wallet and re-issues the
 balance as one token **per mint** (sessions may use different mints; each
 bundle is decoded against its own session's mint). It shares coco setup with the
@@ -307,10 +320,15 @@ server via `server/src/wallet/coco.ts`; it refuses to run while the server is up
 (single-writer SQLite), backs up both databases first, and is idempotent. Matching is done in
 `server/src/admin/withdraw.ts` by comparing the in-flight send's proof secrets to each
 game bundle's decoded token, so already-redeemed tokens are skipped and a previous
-withdrawal token is picked up as an orphan send. Reclaimed bundles are marked
+withdrawal token is picked up as an orphan send. Reclaimed/melted bundles are marked
 `reclaimed`; the unlock endpoint returns HTTP 410 for them. Bundles left
-`combining` by an interrupted combine are marked `reclaimed` too (their sends are
-swept as orphans, and the sweep owns the wallet), so recovery cannot reissue them.
+`combining`/`melting` are marked `reclaimed` too (their sends are swept as
+orphans, and the sweep owns the wallet), so recovery cannot reissue them.
+
+`recycle` handles the other failure mode: a quote the mint marked PAID but never
+issued (e.g. an empty-`pubkey` ownership conflict). It drops the terminal failed
+op and re-prepares/finalizes the quote, minting the stranded sats so `withdraw`
+can sweep them.
 
 Note: mock and real modes currently share `server/data/cashu-xx.db`, so mock rows live
 beside real ones (they are ignored, being undecodable for our mint). Giving mock its own
@@ -320,6 +338,6 @@ database is a known follow-up.
 
 - No accounts, no multiplayer, no server-side game state beyond the token ledger.
 - No NUT-17 websockets in v1 (polling suffices) — flagged as an easy upgrade.
-- No animated QR (NUT-16).
-- No melting/swap-back through the game: once issued, tokens are the player's.
+- No animated QR (NUT-16) — the melt replaced token QRs entirely.
+- Melting pays only to bolt11/LNURL-pay; no onchain or bolt12 payout.
 - Hosting (Hostinger / itch.io + API) explicitly deferred.

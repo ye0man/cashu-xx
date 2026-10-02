@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import type { BundleState, MilestoneId, SessionState } from '@cashu-xx/shared';
+import type { BundleState, MeltState, MilestoneId, SessionState } from '@cashu-xx/shared';
 import Database from 'better-sqlite3';
 
 export interface SessionRow {
@@ -14,6 +14,12 @@ export interface SessionRow {
   quote_expires_at: number | null;
   state: SessionState;
   created_at: number;
+  melt_destination: string | null;
+  melt_op_id: string | null;
+  melt_state: MeltState | null;
+  melt_amount_sats: number | null;
+  melt_fee_sats: number | null;
+  melt_preimage: string | null;
 }
 
 export interface BundleRow {
@@ -24,6 +30,12 @@ export interface BundleRow {
   unlocked_at: number | null;
   issued_at: number | null;
 }
+
+/** A session as inserted at creation: the melt columns start NULL. */
+export type NewSession = Omit<
+  SessionRow,
+  'melt_destination' | 'melt_op_id' | 'melt_state' | 'melt_amount_sats' | 'melt_fee_sats' | 'melt_preimage'
+>;
 
 export interface BundleSeed {
   milestoneId: MilestoneId;
@@ -51,9 +63,22 @@ export class Repo {
     if (!columns.some((column) => column.name === 'mint_url')) {
       this.db.exec('ALTER TABLE sessions ADD COLUMN mint_url TEXT');
     }
+    for (const column of [
+      'melt_destination TEXT',
+      'melt_op_id TEXT',
+      'melt_state TEXT',
+      'melt_amount_sats INTEGER',
+      'melt_fee_sats INTEGER',
+      'melt_preimage TEXT',
+    ]) {
+      const name = column.split(' ')[0] as string;
+      if (!columns.some((existing) => existing.name === name)) {
+        this.db.exec(`ALTER TABLE sessions ADD COLUMN ${column}`);
+      }
+    }
   }
 
-  createSession(row: SessionRow): void {
+  createSession(row: NewSession): void {
     this.db
       .prepare(
         `INSERT INTO sessions (id, claim_code, auth_token, mint_url, quote_id, mint_op_id, invoice, quote_expires_at, state, created_at)
@@ -144,13 +169,57 @@ export class Repo {
 
   /** Mark bundles as an in-progress combine before the (irreversible) send reclaim. */
   markCombining(sessionId: string, milestoneIds: MilestoneId[]): void {
-    const stmt = this.db.prepare(`UPDATE bundles SET state = 'combining' WHERE session_id = ? AND milestone_id = ?`);
+    this.setBundleStates(sessionId, milestoneIds, 'combining');
+  }
+
+  /** Mark bundles as an in-progress melt before the (irreversible) send reclaim. */
+  markMelting(sessionId: string, milestoneIds: MilestoneId[]): void {
+    this.setBundleStates(sessionId, milestoneIds, 'melting');
+  }
+
+  /** Mark bundles as paid out to the player's Lightning wallet. */
+  markMelted(sessionId: string, milestoneIds: MilestoneId[], at: number): void {
+    const stmt = this.db.prepare(
+      `UPDATE bundles SET state = 'melted', unlocked_at = COALESCE(unlocked_at, ?), issued_at = ? WHERE session_id = ? AND milestone_id = ?`,
+    );
     const tx = this.db.transaction((ids: MilestoneId[]) => {
       for (const milestoneId of ids) {
-        stmt.run(sessionId, milestoneId);
+        stmt.run(at, at, sessionId, milestoneId);
       }
     });
     tx(milestoneIds);
+  }
+
+  private setBundleStates(sessionId: string, milestoneIds: MilestoneId[], state: BundleState): void {
+    const stmt = this.db.prepare(`UPDATE bundles SET state = ? WHERE session_id = ? AND milestone_id = ?`);
+    const tx = this.db.transaction((ids: MilestoneId[]) => {
+      for (const milestoneId of ids) {
+        stmt.run(state, sessionId, milestoneId);
+      }
+    });
+    tx(milestoneIds);
+  }
+
+  /** Record an in-flight melt operation (idempotency: a retry resumes it). */
+  startMelt(id: string, opId: string, destination: string): void {
+    this.db
+      .prepare(`UPDATE sessions SET melt_op_id = ?, melt_destination = ?, melt_state = 'pending' WHERE id = ?`)
+      .run(opId, destination, id);
+  }
+
+  finishMelt(
+    id: string,
+    result: { state: MeltState; amountSats: number; feeSats: number; preimage?: string; destination: string },
+  ): void {
+    this.db
+      .prepare(
+        `UPDATE sessions SET melt_state = ?, melt_amount_sats = ?, melt_fee_sats = ?, melt_preimage = ?, melt_destination = ? WHERE id = ?`,
+      )
+      .run(result.state, result.amountSats, result.feeSats, result.preimage ?? null, result.destination, id);
+  }
+
+  clearMelt(id: string): void {
+    this.db.prepare('UPDATE sessions SET melt_op_id = NULL, melt_state = NULL WHERE id = ?').run(id);
   }
 
   /** Restore a bundle to a specific state (used to undo a combine that claimed nothing). */
@@ -175,13 +244,15 @@ export class Repo {
   }
 
   /**
-   * A sweep by the operator takes over the wallet, so any combine left in
+   * A sweep by the operator takes over the wallet, so any combine/melt left in
    * progress is dead: its sats are either reclaimed into the sweep or already in
-   * the spendable balance being swept. Mark them so a later combine cannot
-   * reissue a combined token with no backing.
+   * the spendable balance being swept. Mark them so a later operation cannot
+   * reissue sats the sweep already took.
    */
-  markAllCombiningReclaimed(): number {
-    return this.db.prepare(`UPDATE bundles SET state = 'reclaimed' WHERE state = 'combining'`).run().changes;
+  markAllInProgressReclaimed(): number {
+    return this.db
+      .prepare(`UPDATE bundles SET state = 'reclaimed' WHERE state IN ('combining', 'melting')`)
+      .run().changes;
   }
 
   close(): void {

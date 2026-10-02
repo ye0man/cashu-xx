@@ -22,7 +22,7 @@ export class EndingScene extends Phaser.Scene {
     super({ key: 'EndingScene' });
   }
 
-  create(): void {
+  create(data: { receivedSats?: number } = {}): void {
     audio.playTheme('ceremony');
     const earned = earnedMilestones();
     const width = this.scale.width;
@@ -34,7 +34,14 @@ export class EndingScene extends Phaser.Scene {
 
     center(18, 'NUT-31', '24px', '#e8c9a0');
     center(42, 'you entered as a placeholder. you leave as NUT-31.', '10px', '#b0a8bd');
-    center(56, `${earned.length}/10 TOKENS CLAIMED — the full 100 sats came home.`, '10px', '#b0a8bd');
+    center(
+      56,
+      data.receivedSats !== undefined
+        ? `${earned.length}/10 TOKENS — ${data.receivedSats} sats melted home to your Lightning wallet.`
+        : `${earned.length}/10 TOKENS SECURED — cash out with Prof. Hickory.`,
+      '10px',
+      '#b0a8bd',
+    );
 
     // Two half-width columns keep every credit on screen at once — no scroll.
     this.add.text(20, 74, '— CAST —', BODY_STYLE);

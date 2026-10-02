@@ -5,6 +5,7 @@ import { registerCombineRoutes } from './routes/combine';
 import { registerDepositRoutes } from './routes/deposit';
 import { makeGuard } from './routes/helpers';
 import { registerLedgerRoutes } from './routes/ledger';
+import { registerMeltRoutes } from './routes/melt';
 import { registerMintRoutes } from './routes/mint';
 import { registerSessionRoutes } from './routes/session';
 import { registerUnlockRoutes } from './routes/unlock';
@@ -56,6 +57,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   registerDepositRoutes(app, options.wallet, guard);
   registerUnlockRoutes(app, options.wallet, guard);
   registerCombineRoutes(app, options.wallet, guard);
+  registerMeltRoutes(app, options.wallet, guard);
   registerLedgerRoutes(app, options.wallet, guard);
   registerMintRoutes(app, {
     getMintInfo: (url) => options.getMintInfo?.(url) ?? NO_MINT,

@@ -17,6 +17,12 @@ const state = vi.hoisted(() => ({
   addedMints: [] as string[],
   mintOnline: true,
   mintFeePpk: 0,
+  nut20: true,
+  mintQuoteCreateInputs: [] as Array<Record<string, unknown>>,
+  meltAmount: 100,
+  meltFeeReserve: 0,
+  meltExecuteState: 'finalized' as 'finalized' | 'pending',
+  meltGetState: 'finalized' as 'finalized' | 'pending' | 'failed',
 }));
 
 // A current unix-seconds expiry, mirroring a real bolt11 mint quote (1h out).
@@ -46,13 +52,36 @@ vi.mock('../src/wallet/coco', () => ({
           state.addedMints.push(mintUrl);
           return { mintUrl, keysets: [] };
         },
+        getMintInfo: async () => ({
+          name: 'Test mint',
+          nuts: state.nut20 ? { '20': { supported: true } } : {},
+        }),
       },
       quotes: {
         mint: {
-          create: async () => ({ quoteId: `quote-${Date.now()}`, request: 'lnbc1test', expiry: quoteExpiry() }),
+          create: async (input: Record<string, unknown> = {}) => {
+            state.mintQuoteCreateInputs.push(input);
+            return { quoteId: `quote-${Date.now()}`, request: 'lnbc1test', expiry: quoteExpiry() };
+          },
+        },
+        melt: {
+          create: async () => ({
+            quoteId: 'melt-quote-1',
+            amount: state.meltAmount,
+            fee_reserve: state.meltFeeReserve,
+            request: 'lnbc1melt',
+          }),
         },
       },
       ops: {
+        melt: {
+          prepare: async () => ({ id: 'melt-op-1', state: 'prepared' }),
+          execute: async () =>
+            state.meltExecuteState === 'finalized'
+              ? { id: 'melt-op-1', state: 'finalized', finalizedData: { preimage: 'preimage-1' } }
+              : { id: 'melt-op-1', state: 'pending' },
+          get: async () => ({ id: 'melt-op-1', state: state.meltGetState }),
+        },
         mint: {
           get: async () => ({ state: state.finalized ? 'finalized' : 'pending' }),
           prepare: async () => ({ id: `mint-op-${Date.now()}` }),
@@ -160,6 +189,28 @@ describe('MinibitsWallet background split', () => {
     state.addedMints = [];
     state.mintOnline = true;
     state.mintFeePpk = 0;
+    state.nut20 = true;
+    state.mintQuoteCreateInputs = [];
+    state.meltAmount = 100;
+    state.meltFeeReserve = 0;
+    state.meltExecuteState = 'finalized';
+    state.meltGetState = 'finalized';
+  });
+
+  it('locks the mint quote when the mint supports NUT-20', async () => {
+    const { wallet } = makeWallet();
+    const session = await wallet.createSession();
+    await wallet.getDepositQuote(session.sessionId);
+    expect(state.mintQuoteCreateInputs).toHaveLength(1);
+    expect(state.mintQuoteCreateInputs[0]?.locked).toBe(true);
+  });
+
+  it('does not lock the mint quote when the mint lacks NUT-20', async () => {
+    state.nut20 = false;
+    const { wallet } = makeWallet();
+    const session = await wallet.createSession();
+    await wallet.getDepositQuote(session.sessionId);
+    expect(state.mintQuoteCreateInputs[0]?.locked).toBe(false);
   });
 
   it('locks a new session to the requested mint and loads its keysets', async () => {
@@ -395,5 +446,63 @@ describe('MinibitsWallet background split', () => {
     // Only one reclaim and one combined send, even though combine was called twice.
     expect(state.reclaimed).toEqual(['op-0']);
     expect(state.sends).toHaveLength(11);
+  });
+
+  it('reports the meltable balance in a preview', async () => {
+    const { repo, wallet } = makeWallet();
+    const session = await finalizedSession(repo, wallet);
+    await wallet.getDepositStatus(session.sessionId);
+    await waitFor(() => repo.hasBundles(session.sessionId));
+
+    const preview = await wallet.meltPreview(session.sessionId);
+    expect(preview).toMatchObject({ availableSats: 100, bundleCount: 10, meltedSats: 0 });
+  });
+
+  it('melts every outstanding token to a bolt11 invoice', async () => {
+    const { repo, wallet } = makeWallet();
+    const session = await finalizedSession(repo, wallet);
+    await wallet.getDepositStatus(session.sessionId);
+    await waitFor(() => repo.hasBundles(session.sessionId));
+
+    const result = await wallet.meltSession(session.sessionId, { destination: 'lnbc1meltinvoice' });
+    expect(result).toMatchObject({ state: 'melted', paid: true, amountSats: 100, feeSats: 0 });
+    expect(result.preimage).toBe('preimage-1');
+    expect(repo.listBundles(session.sessionId).every((bundle) => bundle.state === 'melted')).toBe(true);
+    expect(repo.getSession(session.sessionId)?.melt_state).toBe('melted');
+
+    // Nothing left to melt on a second call.
+    await expect(wallet.meltSession(session.sessionId, { destination: 'lnbc1meltinvoice' })).rejects.toMatchObject({
+      code: 'not_ready',
+    });
+  });
+
+  it('resumes a pending melt instead of paying twice', async () => {
+    const { repo, wallet } = makeWallet();
+    const session = await finalizedSession(repo, wallet);
+    await wallet.getDepositStatus(session.sessionId);
+    await waitFor(() => repo.hasBundles(session.sessionId));
+
+    state.meltExecuteState = 'pending';
+    const first = await wallet.meltSession(session.sessionId, { destination: 'lnbc1meltinvoice' });
+    expect(first.state).toBe('pending');
+    expect(repo.getBundle(session.sessionId, 'impl-rusty')?.state).toBe('melting');
+
+    // The op settles on the next call; the same operation is completed, not a new payment.
+    state.meltGetState = 'finalized';
+    const second = await wallet.meltSession(session.sessionId, { destination: 'lnbc1meltinvoice' });
+    expect(second).toMatchObject({ state: 'melted', paid: true, amountSats: 100 });
+    expect(repo.listBundles(session.sessionId).every((bundle) => bundle.state === 'melted')).toBe(true);
+  });
+
+  it('refuses a melt the balance cannot cover', async () => {
+    const { repo, wallet } = makeWallet();
+    const session = await finalizedSession(repo, wallet);
+    await wallet.getDepositStatus(session.sessionId);
+    await waitFor(() => repo.hasBundles(session.sessionId));
+
+    state.meltAmount = 200;
+    await expect(wallet.meltSession(session.sessionId, { destination: 'lnbc1meltinvoice' })).rejects.toMatchObject({
+      code: 'invalid',
+    });
   });
 });

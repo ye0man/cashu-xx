@@ -7,6 +7,8 @@ import {
   type CombineResponse,
   type DepositQuote,
   type DepositStatus,
+  type MeltPreviewResponse,
+  type MeltResponse,
   type MilestoneId,
 } from '@cashu-xx/shared';
 import { BaseWallet } from './BaseWallet';
@@ -49,6 +51,55 @@ export class MockWallet extends BaseWallet {
       paid: state === 'paid' || state === 'minted',
       minted: state === 'minted',
       bundlesReady: state === 'minted',
+    };
+  }
+
+  async meltPreview(sessionId: string): Promise<MeltPreviewResponse> {
+    const row = this.mustGet(sessionId);
+    let availableSats = 0;
+    let meltedSats = 0;
+    let bundleCount = 0;
+    for (const bundle of this.repo.listBundles(row.id)) {
+      if (!bundle.token) {
+        continue;
+      }
+      if (bundle.state === 'melted') {
+        meltedSats += TOKEN_AMOUNT_SATS;
+      } else if (!isDeadBundleState(bundle.state)) {
+        availableSats += TOKEN_AMOUNT_SATS;
+        bundleCount += 1;
+      }
+    }
+    return { availableSats, bundleCount, meltedSats };
+  }
+
+  async meltSession(
+    sessionId: string,
+    request: { destination: string; milestoneIds?: MilestoneId[] },
+  ): Promise<MeltResponse> {
+    const row = this.mustGet(sessionId);
+    const requested = request.milestoneIds ? new Set(request.milestoneIds) : null;
+    const target = this.repo
+      .listBundles(row.id)
+      .filter(
+        (bundle) =>
+          bundle.token &&
+          !isDeadBundleState(bundle.state) &&
+          (bundle.state === 'melting' || !requested || requested.has(bundle.milestone_id)),
+      )
+      .map((bundle) => bundle.milestone_id);
+    if (target.length === 0) {
+      throw new WalletError('not_ready', 'no tokens to melt');
+    }
+    const amountSats = target.length * TOKEN_AMOUNT_SATS;
+    this.repo.markMelted(row.id, target, Date.now());
+    return {
+      state: 'melted',
+      paid: true,
+      amountSats,
+      feeSats: 0,
+      destination: request.destination,
+      preimage: 'mock-preimage',
     };
   }
 

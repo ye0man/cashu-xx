@@ -5,6 +5,8 @@ import type {
   DepositQuote,
   DepositStatus,
   LedgerRow,
+  MeltPreviewResponse,
+  MeltResponse,
   MilestoneId,
   UnlockResponse,
 } from '@cashu-xx/shared';
@@ -31,6 +33,13 @@ export interface WalletService {
   unlockToken(sessionId: string, milestoneId: MilestoneId): Promise<UnlockResponse>;
   combineTokens(sessionId: string, milestoneIds: MilestoneId[]): Promise<CombineResponse>;
   getLedger(sessionId: string): Promise<LedgerRow[]>;
+  /** Sats available to melt and sats already paid out. */
+  meltPreview(sessionId: string): Promise<MeltPreviewResponse>;
+  /** Melt the session's outstanding tokens to a Lightning address or bolt11 invoice. */
+  meltSession(
+    sessionId: string,
+    request: { destination: string; milestoneIds?: MilestoneId[] },
+  ): Promise<MeltResponse>;
   /** Optional: boot expensive wallet dependencies ahead of the first request. */
   warmup?(): Promise<void>;
 }

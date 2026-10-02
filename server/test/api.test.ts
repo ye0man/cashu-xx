@@ -136,6 +136,38 @@ describe('API', () => {
     });
     expect(empty.statusCode).toBe(400);
   });
+
+  it('melts outstanding tokens to a destination and reports the preview', async () => {
+    const created = await app.inject({ method: 'POST', url: '/api/session' });
+    const fresh: CreateSessionResponse = created.json();
+    const headers = { authorization: `Bearer ${fresh.authToken}` };
+    await app.inject({ method: 'GET', url: `/api/session/${fresh.sessionId}/deposit`, headers });
+    await app.inject({ method: 'GET', url: `/api/session/${fresh.sessionId}/deposit/status`, headers });
+
+    const previewBefore = await app.inject({ method: 'GET', url: `/api/session/${fresh.sessionId}/melt`, headers });
+    expect(previewBefore.statusCode).toBe(200);
+    expect(previewBefore.json().availableSats).toBe(100);
+
+    const melt = await app.inject({
+      method: 'POST',
+      url: `/api/session/${fresh.sessionId}/melt`,
+      headers,
+      payload: { destination: 'player@wallet.example' },
+    });
+    expect(melt.statusCode).toBe(200);
+    expect(melt.json()).toMatchObject({ state: 'melted', paid: true, amountSats: 100 });
+
+    const previewAfter = await app.inject({ method: 'GET', url: `/api/session/${fresh.sessionId}/melt`, headers });
+    expect(previewAfter.json()).toMatchObject({ availableSats: 0, meltedSats: 100 });
+
+    const bad = await app.inject({
+      method: 'POST',
+      url: `/api/session/${fresh.sessionId}/melt`,
+      headers,
+      payload: { destination: '' },
+    });
+    expect(bad.statusCode).toBe(400);
+  });
 });
 
 describe('mint selection & discovery', () => {

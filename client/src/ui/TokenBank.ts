@@ -1,19 +1,18 @@
 import * as Phaser from 'phaser';
-import { MILESTONE_IDS, MILESTONE_LABELS, type MilestoneId } from '@cashu-xx/shared';
+import { MILESTONE_IDS, MILESTONE_LABELS } from '@cashu-xx/shared';
 import { isMilestoneEarned } from '../systems/quests';
 
+/**
+ * Read-only status board at Minibits HQ: which tokens have been secured. There
+ * is no per-token claim here any more — sats are cashed out by melting with
+ * Prof. Hickory.
+ */
 export class TokenBank {
   private readonly container: Phaser.GameObjects.Container;
   private readonly bodyText: Phaser.GameObjects.Text;
-  private readonly actionKeys: Phaser.Input.Keyboard.Key[];
   private readonly closeKeys: Phaser.Input.Keyboard.Key[];
-  private readonly upKey: Phaser.Input.Keyboard.Key;
-  private readonly downKey: Phaser.Input.Keyboard.Key;
-  private readonly onPick: (milestoneId: MilestoneId) => void;
-  private cursor = 0;
 
-  constructor(scene: Phaser.Scene, onPick: (milestoneId: MilestoneId) => void) {
-    this.onPick = onPick;
+  constructor(scene: Phaser.Scene) {
     const width = scene.scale.width;
     const height = scene.scale.height;
     this.container = scene.add.container(0, 0).setScrollFactor(0).setDepth(140).setVisible(false);
@@ -33,10 +32,7 @@ export class TokenBank {
     if (!keyboard) {
       throw new Error('TokenBank requires keyboard input');
     }
-    this.actionKeys = [keyboard.addKey('Z'), keyboard.addKey('ENTER'), keyboard.addKey('SPACE')];
-    this.closeKeys = [keyboard.addKey('X'), keyboard.addKey('ESC')];
-    this.upKey = keyboard.addKey('UP');
-    this.downKey = keyboard.addKey('DOWN');
+    this.closeKeys = [keyboard.addKey('X'), keyboard.addKey('ESC'), keyboard.addKey('Z'), keyboard.addKey('ENTER')];
   }
 
   get isOpen(): boolean {
@@ -44,7 +40,6 @@ export class TokenBank {
   }
 
   open(): void {
-    this.cursor = 0;
     this.container.setVisible(true);
     this.render();
   }
@@ -59,32 +54,21 @@ export class TokenBank {
     }
     if (this.closeKeys.some((key) => Phaser.Input.Keyboard.JustDown(key))) {
       this.close();
-      return;
-    }
-    if (Phaser.Input.Keyboard.JustDown(this.upKey)) {
-      this.cursor = (this.cursor + MILESTONE_IDS.length - 1) % MILESTONE_IDS.length;
-      this.render();
-    }
-    if (Phaser.Input.Keyboard.JustDown(this.downKey)) {
-      this.cursor = (this.cursor + 1) % MILESTONE_IDS.length;
-      this.render();
-    }
-    if (this.actionKeys.some((key) => Phaser.Input.Keyboard.JustDown(key))) {
-      const milestoneId = MILESTONE_IDS[this.cursor];
-      if (isMilestoneEarned(milestoneId)) {
-        this.close();
-        this.onPick(milestoneId);
-      }
     }
   }
 
   private render(): void {
-    const header = 'MINIBITS HQ · TOKEN BANK        Z claim · X close';
-    const rows = MILESTONE_IDS.map((id, index) => {
-      const marker = index === this.cursor ? '>' : ' ';
-      const state = isMilestoneEarned(id) ? 'CLAIM' : '----';
-      return `${marker} ${MILESTONE_LABELS[id].padEnd(22, '.')} ${state}`;
+    const earned = MILESTONE_IDS.filter((id) => isMilestoneEarned(id)).length;
+    const header = `MINIBITS HQ · TOKEN BANK        X close`;
+    const rows = MILESTONE_IDS.map((id) => {
+      const state = isMilestoneEarned(id) ? 'SECURED' : '-------';
+      return `  ${MILESTONE_LABELS[id].padEnd(22, '.')} ${state}`;
     });
-    this.bodyText.setText([header, '', ...rows].join('\n'));
+    const footer = [
+      '',
+      `Tokens secured: ${earned}/10.`,
+      'Take your sats to Prof. Hickory — he melts them to your Lightning wallet.',
+    ];
+    this.bodyText.setText([header, '', ...rows, ...footer].join('\n'));
   }
 }

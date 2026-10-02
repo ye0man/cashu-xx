@@ -10,16 +10,15 @@ import {
 } from '../data/challenges';
 import type { PickupSpot } from '../data/maps';
 import type { DialogManager } from '../ui/DialogManager';
-import type { QRPanel } from '../ui/QRPanel';
 import { audio } from './audio';
 import { runQuestions, runShellRounds, runTraceOrder } from './challenges';
+import { meltOutstanding } from './melt';
 import { STORY_FLAGS, earnedMilestones, getJournal, hasFlag, hiddenFound, setFlag } from './quests';
-import { combineUnlockedTokens, showTokenClaim } from './tokens';
+import { showTokenClaim } from './tokens';
 
 export interface StoryContext {
   scene: Phaser.Scene;
   dialog: DialogManager;
-  qr: QRPanel;
   showToast: (message: string) => void;
   openTokenBank: () => void;
 }
@@ -141,30 +140,39 @@ async function talkHickory(ctx: StoryContext): Promise<void> {
   }
 
   const earned = earnedMilestones().length;
-  if (earned < 10) {
-    await dialog.openAsync({
-      speaker: 'PROF. HICKORY',
-      lines: [
-        `NUT-31! The spec survives because three codebases hum in tune. Tokens: ${earned}/10.`,
-        'Find them all, then come back. When the ledger is spotless, we melt — and that, NUT-31, is the end of the road.',
-      ],
-    });
-    return;
+  const choices = [{ id: 'wait', label: 'Not yet' }];
+  if (earned > 0) {
+    choices.unshift({ id: 'cashout', label: 'Cash out my sats' });
+  }
+  if (earned >= 10) {
+    choices.unshift({ id: 'melt', label: 'Melt the tokens (ends the game)' });
   }
 
   const choice = await dialog.openAsync({
     speaker: 'PROF. HICKORY',
     lines: [
-      'The ledger is spotless: 10/10 tokens. One ritual remains: the melt.',
+      earned >= 10
+        ? 'The ledger is spotless: 10/10 tokens. One ritual remains: the melt.'
+        : `NUT-31! The spec survives because three codebases hum in tune. Tokens: ${earned}/10.`,
       'Hand me the tokens and I’ll melt them down. The spending condition fires, the sats move on, and NUT-31 stands on its own.',
     ],
-    choices: [
-      { id: 'melt', label: 'Melt the tokens (ends the game)' },
-      { id: 'wait', label: 'Not yet' },
-    ],
+    choices,
   });
   if (choice === 'melt') {
-    await runMelt(ctx);
+    const outcome = await meltOutstanding(ctx, { all: true });
+    if (outcome) {
+      await runMelt(ctx, outcome.receivedSats, outcome.pending);
+    }
+    return;
+  }
+  if (choice === 'cashout') {
+    const outcome = await meltOutstanding(ctx, { all: false });
+    if (outcome && !outcome.pending) {
+      await dialog.openAsync({
+        speaker: 'PROF. HICKORY',
+        lines: [`${outcome.receivedSats} sats are on their way to your Lightning wallet. Spend them well.`],
+      });
+    }
     return;
   }
   await dialog.openAsync({
@@ -173,7 +181,7 @@ async function talkHickory(ctx: StoryContext): Promise<void> {
   });
 }
 
-async function runMelt(ctx: StoryContext): Promise<void> {
+async function runMelt(ctx: StoryContext, receivedSats: number, pending: boolean): Promise<void> {
   const dialog = ctx.dialog;
   audio.playTheme('ceremony');
   await dialog.openAsync({
@@ -187,9 +195,14 @@ async function runMelt(ctx: StoryContext): Promise<void> {
   await delay(2100);
   await dialog.openAsync({
     speaker: 'PROF. HICKORY',
-    lines: ['It is done. You were a fine NUT, NUT-31.'],
+    lines: [
+      pending
+        ? 'The Lightning payment is still settling — the sats are in flight and will land shortly.'
+        : `${receivedSats} sats came home to your wallet.`,
+      'It is done. You were a fine NUT, NUT-31.',
+    ],
   });
-  ctx.scene.scene.start('EndingScene');
+  ctx.scene.scene.start('EndingScene', { receivedSats });
 }
 
 async function runCeremony(ctx: StoryContext): Promise<void> {
@@ -386,7 +399,6 @@ async function talkReceptionist(ctx: StoryContext): Promise<void> {
     speaker: 'RECEPTIONIST',
     choices: [
       { id: 'tokens', label: 'Show my tokens' },
-      { id: 'combine', label: 'Combine my unlocked tokens' },
       { id: 'report', label: 'Status report' },
       { id: 'bye', label: 'Goodbye' },
     ],
@@ -400,17 +412,13 @@ async function talkReceptionist(ctx: StoryContext): Promise<void> {
     ctx.openTokenBank();
     return;
   }
-  if (choice === 'combine') {
-    await combineUnlockedTokens(ctx);
-    return;
-  }
   if (choice === 'report') {
     await dialog.openAsync({
       speaker: 'RECEPTIONIST',
       lines: [
         `Hidden tokens found: ${hidden}/4. Total tokens earned: ${earned}/10.`,
         'The lobby coffee is free. The ecash is yours to find. Ask around — trash cans lie.',
-        'I can also combine your unlocked tokens into one big token. Fewer things to lose.',
+        'When you’re ready to cash out, take it to Prof. Hickory — he melts your sats to Lightning.',
       ],
     });
   }

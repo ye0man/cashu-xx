@@ -50,14 +50,14 @@ See [`docs/ROADMAP.md`](docs/ROADMAP.md).
 2. **Pay** — scan a 100-sat Lightning invoice (any LN wallet works). Your
    **Trainer ID** (claim code) appears on the payment screen — save it.
 3. **Play** — ~30 min of quests modeled on the NUT contribution process.
-4. **Claim** — 10 tokens × 10 sats, each a `cashuA` QR any cashu wallet can take
-   (the receptionist at Minibits HQ re-displays any of them). The game never
-   takes a cut.
+4. **Melt** — when you're done, Prof. Hickory melts your outstanding tokens to a
+   Lightning address or invoice you give him. You can cash out early too; the
+   ending melts whatever is left. No QR juggling, no manual combine.
 
 Ecash defaults to the [Minibits mint](https://minibits.cash) (best-effort beta
 mint — small amounts only). Mints that charge an input fee are allowed: the fee
-is taken out of the sats you can redeem, so a fee-bearing mint pays out ten
-tokens slightly under 10 sats each rather than failing.
+is taken out of the sats you can redeem, so a fee-bearing mint pays out a little
+under the full amount rather than failing.
 
 ## Stack
 
@@ -75,17 +75,19 @@ npm run dev:real   # real Minibits mint — real sats!
 npm test           # vitest (wallet + API + world data)
 ```
 
-With `dev:real`: pay the 100-sat invoice with any Lightning wallet, play, and
-claim 10 × 10-sat cashu tokens with any cashu wallet. `MINT_URL` sets the
-default mint (players can switch per run from the directory).
+With `dev:real`: pay the 100-sat invoice with any Lightning wallet, play, then
+cash out with Prof. Hickory — he melts your sats to a Lightning address or
+invoice. `MINT_URL` sets the default mint (players can switch per run from the
+directory).
 
 Controls: arrows/WASD move · Z talk/read · X menu · N night · text speed and
 sound in the menu's SETTINGS page.
 
-## Operator: withdrawing unclaimed ecash
+## Operator: unclaimed ecash
 
-Unclaimed game tokens stay in the server wallet (as pending sends in coco). To
-sweep everything unredeemed into one token for your own wallet:
+Tokens a player never cashed out stay in the server wallet (as pending sends in
+coco); sats the player melted are already gone. To sweep the leftovers into a
+token for your own wallet:
 
 ```bash
 npm run wallet -w server -- balance    # read-only overview
@@ -95,13 +97,22 @@ npm run wallet -w server -- withdraw --yes
 
 Stop the game server first; the tool refuses to run if it is up (two SQLite
 writers would corrupt the wallet). It backs up the databases to
-`server/data/backups/`, reclaims every unredeemed token, marks those game tokens
-`reclaimed` (players then get "the operator withdrew the sats" instead of a dead
-token), and writes the single token to `server/data/withdrawals/`.
+`server/data/backups/`, reclaims every unredeemed/melted-in-progress token, marks
+those game tokens `reclaimed`, and writes one token per mint to
+`server/data/withdrawals/` (players then get "the operator withdrew the sats"
+instead of a dead token).
+
+If a mint took a payment but never issued the proofs (e.g. an older coco rejected
+an empty `pubkey` as an ownership conflict), recover those sats first:
+
+```bash
+npm run wallet -w server -- recycle    # re-issues paid-but-unissued quotes
+npm run wallet -w server -- withdraw --yes
+```
 
 Expect it to take a few minutes: coco re-checks every send against the mint on
-startup, and the mint API is rate-limited. Re-running is safe — it is idempotent
-and reclaims a previous withdrawal token too, so you always end up with one.
+startup, and the mint API is rate-limited. Re-running is safe — both commands are
+idempotent.
 
 ## Credits & licenses
 

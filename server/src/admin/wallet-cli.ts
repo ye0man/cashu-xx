@@ -2,6 +2,7 @@ import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Manager } from '@cashu/coco-core';
+import type { SqliteRepositories } from '@cashu/coco-sqlite';
 import QRCode from 'qrcode';
 import { normalizeMintUrl } from '@cashu-xx/shared';
 import { DEFAULT_MINT_URL } from '../config';
@@ -283,9 +284,9 @@ async function withdraw(repo: Repo, manager: Manager, options: Options): Promise
   }
   // Any combine left in progress is now unrecoverable — the sweep owns those
   // sats. Mark it so a later combine cannot reissue a token with no backing.
-  const staleCombines = repo.markAllCombiningReclaimed();
+  const staleCombines = repo.markAllInProgressReclaimed();
   if (staleCombines > 0) {
-    console.log(`Marked ${staleCombines} in-progress combine bundle(s) as reclaimed.`);
+    console.log(`Marked ${staleCombines} in-progress combine/melt bundle(s) as reclaimed.`);
   }
   console.log(`Reclaimed ${outcome.gained} sats from ${plan.matched.length + plan.orphanSends.length} send(s).`);
   for (const failure of outcome.failures) {
@@ -326,12 +327,70 @@ async function withdraw(repo: Repo, manager: Manager, options: Options): Promise
   console.log('If you lose a token before redeeming it, just run withdraw again.\n');
 }
 
+/**
+ * Recovers sats stranded by a paid-but-unissued mint quote — e.g. a mint that
+ * returns an empty `pubkey`, which older coco versions rejected as an ownership
+ * conflict. We drop the terminal failed op and re-prepare/finalize the quote.
+ */
+async function recycle(manager: Manager, repositories: SqliteRepositories): Promise<void> {
+  const failed = (await repositories.mintOperationRepository.getByState('failed')).filter(
+    (op) => op.method === 'bolt11',
+  );
+  if (failed.length === 0) {
+    console.log('\nNo failed mint operations to recycle.\n');
+    return;
+  }
+  console.log(`\nFound ${failed.length} failed mint operation(s); checking for paid-but-unissued quotes...\n`);
+
+  let recovered = 0;
+  for (const op of failed) {
+    const quote = await repositories.mintQuoteRepository
+      .getMintQuoteById({ mintUrl: op.mintUrl, quoteId: op.quoteId })
+      .catch(() => null);
+    if (!quote) {
+      console.log(`  ${op.id}: no canonical quote on record - skipping`);
+      continue;
+    }
+    const paid = Number(quote.amountPaid ?? 0);
+    const issued = Number(quote.amountIssued ?? 0);
+    if (paid <= 0 || issued >= paid) {
+      console.log(`  ${op.id}: nothing owed (paid ${paid}, issued ${issued})`);
+      continue;
+    }
+    console.log(`  ${op.id}: quote ${op.quoteId} at ${op.mintUrl} paid ${paid}, issued ${issued} - issuing...`);
+    try {
+      await repositories.mintOperationRepository.delete(op.id);
+      const prepared = await manager.ops.mint.prepare({
+        quote: { mintUrl: op.mintUrl, quoteId: op.quoteId, method: 'bolt11' },
+        amount: Number(quote.amount),
+      });
+      await manager.ops.mint.checkPayment(prepared.id);
+      let current = await manager.ops.mint.get(prepared.id);
+      if (current?.state === 'executing') {
+        await manager.ops.mint.finalize(prepared.id);
+        current = await manager.ops.mint.get(prepared.id);
+      }
+      if (current?.state === 'finalized') {
+        recovered += Number(quote.amount);
+        console.log(`    issued ${Number(quote.amount)} sats`);
+      } else {
+        console.log(`    not finalized (state ${current?.state ?? 'unknown'}) - run recycle again`);
+      }
+    } catch (err) {
+      console.log(`    failed: ${(err as Error).message}`);
+    }
+  }
+  console.log(`\nRecovered ${recovered} sats. Run \`withdraw --yes\` to sweep them out.\n`);
+}
+
 async function main(): Promise<void> {
   const [command, ...rest] = process.argv.slice(2);
   const options = parseOptions(rest);
 
-  if (command !== 'balance' && command !== 'withdraw') {
-    console.log('usage: npm run wallet -w server -- <balance|withdraw> [--yes] [--data-dir DIR] [--mint URL] [--port N]');
+  if (command !== 'balance' && command !== 'withdraw' && command !== 'recycle') {
+    console.log(
+      'usage: npm run wallet -w server -- <balance|withdraw|recycle> [--yes] [--data-dir DIR] [--mint URL] [--port N]',
+    );
     process.exitCode = command ? 1 : 0;
     return;
   }
@@ -347,7 +406,7 @@ async function main(): Promise<void> {
   const repo = new Repo(path.join(options.dataDir, 'cashu-xx.db'));
   process.stderr.write('Opening wallet…\n');
   const startedAt = Date.now();
-  const { manager } = await openCocoManager({
+  const { manager, repositories } = await openCocoManager({
     mintUrl: options.mintUrl,
     dataDir: options.dataDir,
     logLevel: options.debug ? 'info' : 'error',
@@ -367,6 +426,8 @@ async function main(): Promise<void> {
   try {
     if (command === 'balance') {
       await reportBalance(repo, manager, options);
+    } else if (command === 'recycle') {
+      await recycle(manager, repositories);
     } else {
       await withdraw(repo, manager, options);
     }

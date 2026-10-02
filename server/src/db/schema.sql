@@ -8,7 +8,13 @@ CREATE TABLE IF NOT EXISTS sessions (
   invoice TEXT,
   quote_expires_at INTEGER,
   state TEXT NOT NULL DEFAULT 'created',
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  melt_destination TEXT,
+  melt_op_id TEXT,
+  melt_state TEXT,
+  melt_amount_sats INTEGER,
+  melt_fee_sats INTEGER,
+  melt_preimage TEXT
 );
 
 CREATE TABLE IF NOT EXISTS bundles (

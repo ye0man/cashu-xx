@@ -47,6 +47,9 @@ Phased build plan. Scope: ~30-minute game, one city district, 7 named NPCs,
 - [x] Claim-code recovery flow + receptionist token bank
 - [x] Boot-time mint verification (`input_fee_ppk`, endpoints) with soft-fail UX
 - [x] Mint directory: curated + manual URL selection, per-session mint, live NUT-06/NUT-02 checks
+- [x] NUT-20 locked quotes (fixes mints that return an empty `pubkey`, e.g. Coinos)
+- [x] End-of-run melt: cash out to a Lightning address / bolt11 invoice (early or at the ending)
+- [x] `recycle` operator command for paid-but-unissued quotes
 
 **Exit:** pay 100 sats → play → claim 100 sats back, all real, on localhost.
 

@@ -87,3 +87,35 @@ export interface MintListResponse {
   defaultUrl: string;
   mints: MintCandidate[];
 }
+
+/** `milestoneIds` omitted = melt every outstanding (non-dead) token of the session. */
+export const MeltBodySchema = z.object({
+  destination: z.string().trim().min(3),
+  milestoneIds: z.array(z.enum(MILESTONE_IDS)).min(1).optional(),
+});
+export type MeltBody = z.infer<typeof MeltBodySchema>;
+
+export type MeltState = 'melted' | 'pending' | 'failed';
+
+export interface MeltResponse {
+  state: MeltState;
+  /** True only when the melt is finalized on-chain (preimage settled). */
+  paid: boolean;
+  /** Sats actually sent to the destination. */
+  amountSats: number;
+  /** Mint/Lightning fees taken from the payout. */
+  feeSats: number;
+  /** The Lightning address or bolt11 invoice that was paid. */
+  destination: string;
+  preimage?: string;
+  error?: string;
+}
+
+export interface MeltPreviewResponse {
+  /** Sats the session can still melt (sum of reclaimable, non-dead tokens). */
+  availableSats: number;
+  /** How many tokens still back those sats. */
+  bundleCount: number;
+  /** Sats already paid out in a previous (completed) melt. */
+  meltedSats: number;
+}

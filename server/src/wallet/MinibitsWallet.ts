@@ -11,12 +11,15 @@ import {
   type CombineResponse,
   type DepositQuote,
   type DepositStatus,
+  type MeltPreviewResponse,
+  type MeltResponse,
   type MilestoneId,
   type UnlockResponse,
 } from '@cashu-xx/shared';
-import type { Repo } from '../db/repo';
+import type { Repo, SessionRow } from '../db/repo';
 import { BaseWallet } from './BaseWallet';
 import { openCocoManager } from './coco';
+import { invoiceFromLightningAddress, isLightningAddress, resolveDestination } from './melt';
 import { verifyMint } from './mintVerify';
 import { encodeV3Token } from './token-v3';
 import { WalletError } from './WalletService';
@@ -42,7 +45,9 @@ export class MinibitsWallet extends BaseWallet {
   private repositories: SqliteRepositories | null = null;
   private readonly splits = new Map<string, Promise<void>>();
   private readonly combines = new Map<string, Promise<CombineResponse>>();
+  private readonly melts = new Map<string, Promise<MeltResponse>>();
   private readonly mintsEnsured = new Map<string, Promise<void>>();
+  private readonly nut20ByMint = new Map<string, Promise<boolean>>();
 
   constructor(repo: Repo, options: MinibitsWalletOptions) {
     super(repo, options.mintUrl);
@@ -80,6 +85,28 @@ export class MinibitsWallet extends BaseWallet {
     return pending;
   }
 
+  /**
+   * Whether a mint supports NUT-20 locked quotes. We lock every quote we can:
+   * a locked quote makes the mint echo our pubkey, which both protects the quote
+   * and sidesteps a coco bug where a mint that returns `pubkey: ""` for an
+   * unlocked quote is rejected as a false ownership conflict (see #2/Coinos).
+   * Results are cached per mint; a failed lookup is not cached so it retries.
+   */
+  private supportsLockedQuotes(manager: Manager, mintUrl: string): Promise<boolean> {
+    let pending = this.nut20ByMint.get(mintUrl);
+    if (!pending) {
+      pending = manager.mint
+        .getMintInfo(mintUrl)
+        .then((info) => Boolean((info as { nuts?: Record<string, unknown> } | undefined)?.nuts?.['20']))
+        .catch(() => {
+          this.nut20ByMint.delete(mintUrl);
+          return false;
+        });
+      this.nut20ByMint.set(mintUrl, pending);
+    }
+    return pending;
+  }
+
   private manager(): Promise<Manager> {
     if (!this.managerPromise) {
       // Never cache a failed boot: a single network blip to the mint must not
@@ -109,10 +136,12 @@ export class MinibitsWallet extends BaseWallet {
     const manager = await this.manager();
     await this.ensureMint(mintUrl);
     await this.retirePendingMintOp(manager, row.mint_op_id);
+    const locked = await this.supportsLockedQuotes(manager, mintUrl);
     const quote = await manager.quotes.mint.create({
       mintUrl,
       method: 'bolt11',
       amount: ENTRY_AMOUNT_SATS,
+      locked,
     });
     const pending = await manager.ops.mint.prepare({
       quote: { mintUrl, quoteId: quote.quoteId, method: 'bolt11' },
@@ -227,7 +256,10 @@ export class MinibitsWallet extends BaseWallet {
     const target = bundles
       .filter(
         (bundle) =>
-          bundle.token && !isDeadBundleState(bundle.state) && (requestedSet.has(bundle.milestone_id) || bundle.state === 'combining'),
+          bundle.token &&
+          !isDeadBundleState(bundle.state) &&
+          bundle.state !== 'melting' &&
+          (requestedSet.has(bundle.milestone_id) || bundle.state === 'combining'),
       )
       .map((bundle) => bundle.milestone_id);
 
@@ -319,17 +351,306 @@ export class MinibitsWallet extends BaseWallet {
     sessionId: string,
     milestoneIds: MilestoneId[],
     priorState: Map<MilestoneId, BundleState>,
-    wasCombining: Set<MilestoneId>,
+    wasRecoverable: Set<MilestoneId>,
   ): void {
     for (const milestoneId of milestoneIds) {
-      if (wasCombining.has(milestoneId)) {
+      if (wasRecoverable.has(milestoneId)) {
         continue;
       }
       const prior = priorState.get(milestoneId);
-      if (prior && prior !== 'combining') {
+      if (prior && prior !== 'combining' && prior !== 'melting') {
         this.repo.setBundleState(sessionId, milestoneId, prior);
       }
     }
+  }
+
+  /** Sats locked in a bundle's token (reflects any fee shaved off at split time), or null if undecodable. */
+  private async bundleSats(manager: Manager, mintUrl: string, token: string): Promise<number | null> {
+    try {
+      const decoded = await manager.wallet.decodeToken(token, mintUrl);
+      return decoded.proofs.reduce((sum, proof) => sum + Number(proof.amount), 0);
+    } catch {
+      return null;
+    }
+  }
+
+  async meltPreview(sessionId: string): Promise<MeltPreviewResponse> {
+    const row = this.mustGet(sessionId);
+    const manager = await this.manager();
+    const mintUrl = this.mintUrlFor(row);
+    await this.ensureMint(mintUrl);
+    let availableSats = 0;
+    let meltedSats = 0;
+    let bundleCount = 0;
+    for (const bundle of this.repo.listBundles(row.id)) {
+      if (!bundle.token) {
+        continue;
+      }
+      const sats = await this.bundleSats(manager, mintUrl, bundle.token);
+      if (sats === null) {
+        continue;
+      }
+      if (bundle.state === 'melted') {
+        meltedSats += sats;
+      } else if (!isDeadBundleState(bundle.state)) {
+        availableSats += sats;
+        bundleCount += 1;
+      }
+    }
+    return { availableSats, bundleCount, meltedSats };
+  }
+
+  async meltSession(
+    sessionId: string,
+    request: { destination: string; milestoneIds?: MilestoneId[] },
+  ): Promise<MeltResponse> {
+    // Serialize per session so a double-click / retry can't issue two payments.
+    const existing = this.melts.get(sessionId);
+    if (existing) {
+      return existing;
+    }
+    const pending = this.runMelt(sessionId, request).finally(() => {
+      this.melts.delete(sessionId);
+    });
+    this.melts.set(sessionId, pending);
+    return pending;
+  }
+
+  private async runMelt(
+    sessionId: string,
+    request: { destination: string; milestoneIds?: MilestoneId[] },
+  ): Promise<MeltResponse> {
+    const row = this.mustGet(sessionId);
+    const manager = await this.manager();
+    const mintUrl = this.mintUrlFor(row);
+    await this.ensureMint(mintUrl);
+
+    // Resume an in-flight melt first — never start a second payment for the same
+    // session (idempotency). A finalized op just needs its bookkeeping written.
+    if (row.melt_state === 'pending' && row.melt_op_id) {
+      const op = await manager.ops.melt.get(row.melt_op_id);
+      if (op?.state === 'finalized') {
+        const meltingIds = this.repo
+          .listBundles(row.id)
+          .filter((bundle) => bundle.state === 'melting')
+          .map((bundle) => bundle.milestone_id);
+        return this.completeMelt(row, meltingIds, {
+          destination: row.melt_destination ?? request.destination,
+          amountSats: row.melt_amount_sats ?? 0,
+          feeSats: row.melt_fee_sats ?? 0,
+          preimage: row.melt_preimage ?? undefined,
+        });
+      }
+      if (op && (op.state === 'pending' || op.state === 'executing')) {
+        return {
+          state: 'pending',
+          paid: false,
+          amountSats: row.melt_amount_sats ?? 0,
+          feeSats: row.melt_fee_sats ?? 0,
+          destination: row.melt_destination ?? request.destination,
+        };
+      }
+      this.repo.clearMelt(row.id);
+    }
+
+    const bundles = this.repo.listBundles(row.id);
+    const priorState = new Map(bundles.map((bundle) => [bundle.milestone_id, bundle.state]));
+    const wasMelting = new Set(
+      bundles.filter((bundle) => bundle.state === 'melting').map((bundle) => bundle.milestone_id),
+    );
+    const requested = request.milestoneIds ? new Set(request.milestoneIds) : null;
+    const targets = bundles.filter(
+      (bundle) =>
+        bundle.token &&
+        !isDeadBundleState(bundle.state) &&
+        (bundle.state === 'melting' || !requested || requested.has(bundle.milestone_id)),
+    );
+
+    const targetIds: MilestoneId[] = [];
+    let availableSats = 0;
+    for (const bundle of targets) {
+      const sats = await this.bundleSats(manager, mintUrl, bundle.token as string);
+      if (sats === null) {
+        continue;
+      }
+      targetIds.push(bundle.milestone_id);
+      availableSats += sats;
+    }
+    if (targetIds.length === 0 || availableSats <= 0) {
+      throw new WalletError('not_ready', 'no tokens left to melt');
+    }
+
+    const { quoteId, amount, fee } = await this.createAffordableMeltQuote(
+      manager,
+      mintUrl,
+      request.destination,
+      availableSats,
+    );
+
+    // Persist intent before the irreversible reclaim: a crash is recoverable on retry.
+    this.repo.markMelting(row.id, targetIds);
+
+    const reclaimed = await this.reclaimSends(manager, row.id, mintUrl, targetIds, wasMelting);
+    if (reclaimed.length === 0) {
+      this.restoreBundleStates(row.id, targetIds, priorState, wasMelting);
+      throw new WalletError('not_ready', 'no meltable tokens — they may already be spent');
+    }
+
+    let preparedId: string;
+    try {
+      const prepared = await manager.ops.melt.prepare({
+        quote: { mintUrl, quoteId, method: 'bolt11' },
+      });
+      preparedId = prepared.id;
+    } catch (err) {
+      // Leave `melting` markers: the reclaimed sats are spendable and the next
+      // melt will pick them up and finish.
+      this.repo.clearMelt(row.id);
+      throw err;
+    }
+    this.repo.startMelt(row.id, preparedId, request.destination);
+
+    let executed: Awaited<ReturnType<Manager['ops']['melt']['execute']>>;
+    try {
+      executed = await manager.ops.melt.execute(preparedId);
+    } catch (err) {
+      this.repo.clearMelt(row.id);
+      throw err;
+    }
+
+    if (executed.state === 'finalized') {
+      return this.completeMelt(row, reclaimed, {
+        destination: request.destination,
+        amountSats: amount,
+        feeSats: fee,
+        preimage: executed.finalizedData?.preimage,
+      });
+    }
+    this.repo.finishMelt(row.id, { state: 'pending', amountSats: amount, feeSats: fee, destination: request.destination });
+    return { state: 'pending', paid: false, amountSats: amount, feeSats: fee, destination: request.destination };
+  }
+
+  /**
+   * Creates a melt quote for the destination, sizing down a Lightning-address
+   * invoice when the mint's fee reserve would otherwise make it unaffordable.
+   */
+  private async createAffordableMeltQuote(
+    manager: Manager,
+    mintUrl: string,
+    destination: string,
+    availableSats: number,
+  ): Promise<{ quoteId: string; amount: number; fee: number }> {
+    let invoice = await resolveDestination(destination, availableSats);
+    let quote = await manager.quotes.melt.create({
+      mintUrl,
+      method: 'bolt11',
+      methodData: { invoice },
+      unit: 'sat',
+    });
+    let amount = Number(quote.amount);
+    let fee = Number(quote.fee_reserve ?? 0);
+
+    for (let attempt = 0; attempt < 2 && amount + fee > availableSats; attempt++) {
+      if (!isLightningAddress(destination)) {
+        break;
+      }
+      const reduced = availableSats - fee;
+      if (reduced <= 0) {
+        break;
+      }
+      invoice = await invoiceFromLightningAddress(destination, reduced);
+      quote = await manager.quotes.melt.create({
+        mintUrl,
+        method: 'bolt11',
+        methodData: { invoice },
+        unit: 'sat',
+      });
+      amount = Number(quote.amount);
+      fee = Number(quote.fee_reserve ?? 0);
+    }
+
+    if (amount + fee > availableSats) {
+      throw new WalletError(
+        'invalid',
+        `can't melt ${amount} sats + ${fee} fee from ${availableSats} available`,
+      );
+    }
+    return { quoteId: quote.quoteId, amount, fee };
+  }
+
+  /** Reclaim (pending) or cancel (prepared) the sends backing each bundle, returning what is now spendable. */
+  private async reclaimSends(
+    manager: Manager,
+    sessionId: string,
+    mintUrl: string,
+    milestoneIds: MilestoneId[],
+    wasMelting: Set<MilestoneId>,
+  ): Promise<MilestoneId[]> {
+    const opBySecret = new Map<string, { id: string; state: string }>();
+    for (const op of await manager.ops.send.listInFlight()) {
+      const token = 'token' in op ? op.token : undefined;
+      if (!token) {
+        continue;
+      }
+      for (const proof of token.proofs) {
+        opBySecret.set(proof.secret, { id: op.id, state: op.state });
+      }
+    }
+
+    const reclaimed: MilestoneId[] = [];
+    for (const milestoneId of milestoneIds) {
+      const bundle = this.repo.getBundle(sessionId, milestoneId);
+      if (!bundle?.token) {
+        continue;
+      }
+      try {
+        const decoded = await manager.wallet.decodeToken(bundle.token, mintUrl);
+        if (normalizeMintUrl(decoded.mint) !== mintUrl) {
+          continue;
+        }
+        const op = decoded.proofs.map((proof) => opBySecret.get(proof.secret)).find((found) => found !== undefined);
+        if (op) {
+          if (op.state === 'prepared') {
+            await manager.ops.send.cancel(op.id);
+          } else {
+            await manager.ops.send.reclaim(op.id);
+          }
+          reclaimed.push(milestoneId);
+        } else if (wasMelting.has(milestoneId)) {
+          // A previous attempt already reclaimed this bundle's sats.
+          reclaimed.push(milestoneId);
+        }
+      } catch {
+        // leave it for the operator sweep / a later retry
+      }
+    }
+    return reclaimed;
+  }
+
+  /** Write melted bookkeeping for `reclaimed` bundles and return the player-facing result. */
+  private completeMelt(
+    row: SessionRow,
+    milestoneIds: MilestoneId[],
+    result: { destination: string; amountSats: number; feeSats: number; preimage?: string },
+  ): MeltResponse {
+    if (milestoneIds.length > 0) {
+      this.repo.markMelted(row.id, milestoneIds, Date.now());
+    }
+    this.repo.finishMelt(row.id, {
+      state: 'melted',
+      amountSats: result.amountSats,
+      feeSats: result.feeSats,
+      preimage: result.preimage,
+      destination: result.destination,
+    });
+    return {
+      state: 'melted',
+      paid: true,
+      amountSats: result.amountSats,
+      feeSats: result.feeSats,
+      destination: result.destination,
+      preimage: result.preimage,
+    };
   }
 
   /** Send a fixed amount as one token, stepping down a little only for fee/denomination reasons. */

@@ -9,6 +9,8 @@ import {
   type DepositStatus,
   type LedgerRow,
   MILESTONE_IDS,
+  type MeltPreviewResponse,
+  type MeltResponse,
   type MilestoneId,
   type UnlockResponse,
 } from '@cashu-xx/shared';
@@ -88,8 +90,11 @@ export abstract class BaseWallet implements WalletService {
     if (bundle.state === 'reclaimed') {
       throw new WalletError('reclaimed', 'the operator withdrew the sats for this token');
     }
-    if (bundle.state === 'combining') {
-      throw new WalletError('not_ready', 'a combine is in progress for this token — retry at Minibits HQ');
+    if (bundle.state === 'melted') {
+      throw new WalletError('reclaimed', 'these sats were already paid out to your Lightning wallet');
+    }
+    if (bundle.state === 'combining' || bundle.state === 'melting') {
+      throw new WalletError('not_ready', 'a cash-out is in progress for this token — retry in a moment');
     }
     if (bundle.state === 'combined') {
       throw new WalletError('combined', 'this token was combined into a single token at Minibits HQ');
@@ -110,6 +115,11 @@ export abstract class BaseWallet implements WalletService {
   abstract getDepositQuote(sessionId: string): Promise<DepositQuote>;
   abstract getDepositStatus(sessionId: string): Promise<DepositStatus>;
   abstract combineTokens(sessionId: string, milestoneIds: MilestoneId[]): Promise<CombineResponse>;
+  abstract meltPreview(sessionId: string): Promise<MeltPreviewResponse>;
+  abstract meltSession(
+    sessionId: string,
+    request: { destination: string; milestoneIds?: MilestoneId[] },
+  ): Promise<MeltResponse>;
 
   protected ledgerRows(sessionId: string): LedgerRow[] {
     return this.repo.listBundles(sessionId).map((bundle) => ({
