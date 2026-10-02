@@ -1,4 +1,4 @@
-import type { CreateSessionResponse, UnlockResponse } from '@cashu-xx/shared';
+import type { CombineResponse, CreateSessionResponse, UnlockResponse } from '@cashu-xx/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app';
@@ -98,5 +98,43 @@ describe('API', () => {
     });
     expect(unlock.statusCode).toBe(410);
     expect(unlock.json().code).toBe('reclaimed');
+  });
+
+  it('combines unlocked tokens into one and reports the spent bundles', async () => {
+    const created = await app.inject({ method: 'POST', url: '/api/session' });
+    const fresh: CreateSessionResponse = created.json();
+    const headers = { authorization: `Bearer ${fresh.authToken}` };
+    await app.inject({ method: 'GET', url: `/api/session/${fresh.sessionId}/deposit`, headers });
+    await app.inject({ method: 'GET', url: `/api/session/${fresh.sessionId}/deposit/status`, headers });
+
+    const combine = await app.inject({
+      method: 'POST',
+      url: `/api/session/${fresh.sessionId}/combine`,
+      headers,
+      payload: { milestoneIds: ['impl-coco', 'kimi-test'] },
+    });
+    expect(combine.statusCode).toBe(200);
+    const body: CombineResponse = combine.json();
+    expect(body.combinedCount).toBe(2);
+    expect(body.amountSats).toBe(20);
+    expect(body.skippedRedeemed).toBe(0);
+    expect(body.token.startsWith('cashuA')).toBe(true);
+
+    const unlock = await app.inject({
+      method: 'POST',
+      url: `/api/session/${fresh.sessionId}/unlock`,
+      headers,
+      payload: { milestoneId: 'impl-coco' },
+    });
+    expect(unlock.statusCode).toBe(410);
+    expect(unlock.json().code).toBe('combined');
+
+    const empty = await app.inject({
+      method: 'POST',
+      url: `/api/session/${fresh.sessionId}/combine`,
+      headers,
+      payload: { milestoneIds: [] },
+    });
+    expect(empty.statusCode).toBe(400);
   });
 });

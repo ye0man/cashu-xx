@@ -6,6 +6,7 @@ import QRCode from 'qrcode';
 import { DEFAULT_MINT_URL } from '../config';
 import { Repo } from '../db/repo';
 import { openCocoManager } from '../wallet/coco';
+import { encodeV3Token } from '../wallet/token-v3';
 import {
   type BundleTokenInfo,
   formatPlan,
@@ -209,7 +210,7 @@ async function sendAll(
     try {
       const prepared = await manager.ops.send.prepare({ mintUrl, amount, unit: 'sat' });
       const { token } = await manager.ops.send.execute(prepared);
-      return { token: manager.wallet.encodeToken(token), amount };
+      return { token: encodeV3Token(token), amount };
     } catch (err) {
       lastError = err;
       if (isNetworkError(err)) {

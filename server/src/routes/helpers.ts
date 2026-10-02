@@ -22,11 +22,11 @@ export function mapWalletError(reply: FastifyReply, err: unknown): FastifyReply 
         ? 404
         : err.code === 'unauthorized'
           ? 401
-          : err.code === 'not_ready'
-            ? 409
-            : err.code === 'reclaimed'
-              ? 410
-              : 400;
+            : err.code === 'not_ready'
+              ? 409
+              : err.code === 'reclaimed' || err.code === 'combined'
+                ? 410
+                : 400;
     return reply.code(status).send({ error: err.message, code: err.code });
   }
   if (err instanceof ZodError) {

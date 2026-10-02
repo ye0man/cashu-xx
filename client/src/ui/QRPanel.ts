@@ -1,7 +1,14 @@
 import * as Phaser from 'phaser';
 import QRCode from 'qrcode';
 
-const QR_SIZE = 200;
+const QR_SIZE = 180;
+// The panel is 280px tall: title, QR, preview and footer must all fit inside
+// the border, so the raw payload (often hundreds of chars) is previewed only.
+const PREVIEW_MAX = 150;
+
+function previewText(payload: string): string {
+  return payload.length > PREVIEW_MAX ? `${payload.slice(0, PREVIEW_MAX - 20)}…${payload.slice(-12)}` : payload;
+}
 
 export class QRPanel {
   private readonly scene: Phaser.Scene;
@@ -26,17 +33,17 @@ export class QRPanel {
       .rectangle(width / 2, height / 2, width - 48, height - 40, 0x120a24, 0.98)
       .setStrokeStyle(2, 0xe8c9a0);
     this.titleText = scene.add
-      .text(width / 2, height / 2 - 128, '', {
+      .text(width / 2, 36, '', {
         fontFamily: 'Courier New',
         fontSize: '12px',
         color: '#9d5fe0',
       })
       .setOrigin(0.5);
     this.qrHolder = scene.add
-      .rectangle(width / 2, height / 2 - 18, QR_SIZE + 12, QR_SIZE + 12, 0x1e1036)
+      .rectangle(width / 2, 138, QR_SIZE + 12, QR_SIZE + 12, 0x1e1036)
       .setStrokeStyle(2, 0x7b2fbe);
     this.bodyText = scene.add
-      .text(width / 2, height / 2 + 100, '', {
+      .text(width / 2, 244, '', {
         fontFamily: 'Courier New',
         fontSize: '9px',
         color: '#b0a8bd',
@@ -45,7 +52,7 @@ export class QRPanel {
       })
       .setOrigin(0.5, 0);
     this.footerText = scene.add
-      .text(width / 2, height / 2 + 138, '', {
+      .text(width / 2, 282, '', {
         fontFamily: 'Courier New',
         fontSize: '11px',
         color: '#e8c9a0',
@@ -68,7 +75,7 @@ export class QRPanel {
   async open(title: string, payload: string, footer: string): Promise<void> {
     this.payload = payload;
     this.titleText.setText(title);
-    this.bodyText.setText(payload);
+    this.bodyText.setText(previewText(payload));
     this.footerText.setText(footer);
     this.container.setVisible(true);
     await this.renderQr(payload);
@@ -111,9 +118,7 @@ export class QRPanel {
     this.textureKey = `qr-${Date.now()}`;
     this.scene.textures.addCanvas(this.textureKey, canvas);
     this.qrImage?.destroy();
-    this.qrImage = this.scene.add
-      .image(this.scene.scale.width / 2, this.scene.scale.height / 2 - 18, this.textureKey)
-      .setDisplaySize(QR_SIZE, QR_SIZE);
+    this.qrImage = this.scene.add.image(this.scene.scale.width / 2, 138, this.textureKey).setDisplaySize(QR_SIZE, QR_SIZE);
     this.container.add(this.qrImage);
   }
 }

@@ -3,6 +3,7 @@ import { MILESTONE_IDS, MILESTONE_LABELS } from '@cashu-xx/shared';
 import { SIGN_TOTAL } from '../data/signs';
 import { audio } from '../systems/audio';
 import { getJournal, isMilestoneEarned } from '../systems/quests';
+import { getGameSession } from '../systems/session';
 import { cycleTextSpeed, getSettings, toggleMuted } from '../systems/settings';
 import { worldState, writeSave } from '../systems/save';
 import type { Direction } from '../systems/movement';
@@ -22,15 +23,18 @@ export class MenuManager {
   private readonly container: Phaser.GameObjects.Container;
   private readonly tabsText: Phaser.GameObjects.Text;
   private readonly bodyText: Phaser.GameObjects.Text;
+  private readonly trainerText: Phaser.GameObjects.Text;
   private readonly actionKeys: Phaser.Input.Keyboard.Key[];
   private readonly closeKeys: Phaser.Input.Keyboard.Key[];
   private readonly muteKeys: Phaser.Input.Keyboard.Key[];
+  private readonly copyKeys: Phaser.Input.Keyboard.Key[];
   private readonly leftKey: Phaser.Input.Keyboard.Key;
   private readonly rightKey: Phaser.Input.Keyboard.Key;
   private readonly snapshot: () => MenuSnapshot;
 
   private pageIndex = 0;
   private savedFlash = false;
+  private copiedFlash = false;
 
   constructor(scene: Phaser.Scene, snapshot: () => MenuSnapshot) {
     this.snapshot = snapshot;
@@ -53,7 +57,14 @@ export class MenuManager {
       color: '#e8c9a0',
       wordWrap: { width: width - 110 },
     });
-    this.container.add([panel, this.tabsText, this.bodyText]);
+    // The Trainer ID is the only way back into this run, so it rides along on
+    // every menu page — not just the payment screen where you first saw it.
+    this.trainerText = scene.add.text(54, height - 54, '', {
+      fontFamily: 'Courier New',
+      fontSize: '10px',
+      color: '#b0a8bd',
+    });
+    this.container.add([panel, this.tabsText, this.bodyText, this.trainerText]);
 
     const keyboard = scene.input.keyboard;
     if (!keyboard) {
@@ -62,6 +73,7 @@ export class MenuManager {
     this.actionKeys = [keyboard.addKey('ENTER'), keyboard.addKey('Z'), keyboard.addKey('SPACE')];
     this.closeKeys = [keyboard.addKey('X'), keyboard.addKey('ESC')];
     this.muteKeys = [keyboard.addKey('M')];
+    this.copyKeys = [keyboard.addKey('C')];
     this.leftKey = keyboard.addKey('LEFT');
     this.rightKey = keyboard.addKey('RIGHT');
   }
@@ -73,6 +85,7 @@ export class MenuManager {
   open(): void {
     this.pageIndex = 0;
     this.savedFlash = false;
+    this.copiedFlash = false;
     this.container.setVisible(true);
     audio.playSfx('sfx-menu');
     this.render();
@@ -94,15 +107,25 @@ export class MenuManager {
       audio.setMuted(toggleMuted());
       this.render();
     }
+    if (this.copyKeys.some((key) => Phaser.Input.Keyboard.JustDown(key))) {
+      const claimCode = getGameSession()?.claimCode;
+      if (claimCode) {
+        void navigator.clipboard?.writeText(claimCode);
+        this.copiedFlash = true;
+        this.renderTrainerId();
+      }
+    }
     if (Phaser.Input.Keyboard.JustDown(this.leftKey)) {
       this.pageIndex = (this.pageIndex + PAGES.length - 1) % PAGES.length;
       this.savedFlash = false;
+      this.copiedFlash = false;
       audio.playSfx('sfx-menu');
       this.render();
     }
     if (Phaser.Input.Keyboard.JustDown(this.rightKey)) {
       this.pageIndex = (this.pageIndex + 1) % PAGES.length;
       this.savedFlash = false;
+      this.copiedFlash = false;
       audio.playSfx('sfx-menu');
       this.render();
     }
@@ -126,6 +149,18 @@ export class MenuManager {
       PAGES.map((name) => (name === page ? `[${name}]` : ` ${name} `)).join('  '),
     );
     this.bodyText.setText(this.renderBody(page));
+    this.renderTrainerId();
+  }
+
+  private renderTrainerId(): void {
+    const claimCode = getGameSession()?.claimCode;
+    if (this.copiedFlash) {
+      this.trainerText.setText('TRAINER ID COPIED TO CLIPBOARD — SAVE IT!');
+      return;
+    }
+    this.trainerText.setText(
+      claimCode ? `TRAINER ID: ${claimCode}  ·  C copies — save it!` : 'TRAINER ID: —  (recover with your claim code)',
+    );
   }
 
   private renderBody(page: MenuPage): string {

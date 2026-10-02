@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   MILESTONE_IDS,
   type ClaimResponse,
+  type CombineResponse,
   type CreateSessionResponse,
   type DepositQuote,
   type DepositStatus,
@@ -66,6 +67,9 @@ export abstract class BaseWallet implements WalletService {
     if (bundle.state === 'reclaimed') {
       throw new WalletError('reclaimed', 'the operator withdrew the sats for this token');
     }
+    if (bundle.state === 'combined') {
+      throw new WalletError('combined', 'this token was combined into a single token at Minibits HQ');
+    }
     if (bundle.state === 'issued' && bundle.issued_at !== null) {
       return { milestoneId, token: bundle.token, issuedAt: bundle.issued_at };
     }
@@ -81,6 +85,7 @@ export abstract class BaseWallet implements WalletService {
 
   abstract getDepositQuote(sessionId: string): Promise<DepositQuote>;
   abstract getDepositStatus(sessionId: string): Promise<DepositStatus>;
+  abstract combineTokens(sessionId: string, milestoneIds: MilestoneId[]): Promise<CombineResponse>;
 
   protected ledgerRows(sessionId: string): LedgerRow[] {
     return this.repo.listBundles(sessionId).map((bundle) => ({

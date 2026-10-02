@@ -9,31 +9,78 @@ const state = vi.hoisted(() => ({
   finalized: true,
   executeDelayMs: 0,
   sends: [] as string[],
+  deletedMintOps: [] as string[],
+  inFlight: [] as Array<{ id: string; state: string; token: { proofs: Array<{ secret: string }> } }>,
+  reclaimed: [] as string[],
 }));
+
+// A current unix-seconds expiry, mirroring a real bolt11 mint quote (1h out).
+const quoteExpiry = () => Math.floor(Date.now() / 1000) + 3600;
 
 vi.mock('../src/wallet/coco', () => ({
   openCocoManager: async () => ({
     manager: {
+      quotes: {
+        mint: {
+          create: async () => ({ quoteId: `quote-${Date.now()}`, request: 'lnbc1test', expiry: quoteExpiry() }),
+        },
+      },
       ops: {
         mint: {
           get: async () => ({ state: state.finalized ? 'finalized' : 'pending' }),
+          prepare: async () => ({ id: `mint-op-${Date.now()}` }),
           checkPayment: async () => {},
           finalize: async () => {},
         },
         send: {
-          prepare: async () => ({ id: `op-${state.sends.length}` }),
-          execute: async (op: { id: string }) => {
+          prepare: async (request: { amount?: number } = {}) => ({ id: `op-${state.sends.length}`, amount: request.amount }),
+          execute: async (op: { id: string; amount?: number }) => {
             if (state.executeDelayMs > 0) {
               await new Promise((resolve) => setTimeout(resolve, state.executeDelayMs));
             }
             state.sends.push(op.id);
-            return { token: { op: op.id } };
+            state.inFlight.push({
+              id: op.id,
+              state: 'pending',
+              token: { proofs: [{ secret: `proof-${op.id}` }] },
+            });
+            // A flat wallet token (mint + proofs), as coco's send returns.
+            return {
+              token: {
+                mint: 'https://mint.test',
+                unit: 'sat',
+                proofs: [{ id: 'ks-1', amount: op.amount ?? 10, secret: `proof-${op.id}`, C: '0202' }],
+              },
+            };
+          },
+          listInFlight: async () => state.inFlight.map((op) => ({ ...op })),
+          reclaim: async (id: string) => {
+            state.reclaimed.push(id);
+            state.inFlight = state.inFlight.filter((op) => op.id !== id);
+          },
+          cancel: async (id: string) => {
+            state.inFlight = state.inFlight.filter((op) => op.id !== id);
           },
         },
       },
-      wallet: { encodeToken: (token: unknown) => `cashuA${Buffer.from(JSON.stringify(token)).toString('base64url')}` },
+      wallet: {
+        // Bundles store V3 tokens now, so decode parses the cashuA JSON back.
+        decodeToken: async (tokenString: string, mintUrl: string) => {
+          const raw = JSON.parse(
+            Buffer.from(tokenString.replace(/^cashuA/, ''), 'base64url').toString('utf8'),
+          ) as { token: Array<{ mint: string; proofs: Array<{ secret: string }> }> };
+          return { mint: mintUrl ?? raw.token[0].mint, proofs: raw.token[0].proofs };
+        },
+      },
     },
     database: {},
+    repositories: {
+      mintOperationRepository: {
+        delete: async (id: string) => {
+          state.deletedMintOps.push(id);
+        },
+      },
+    },
   }),
 }));
 
@@ -67,11 +114,36 @@ describe('MinibitsWallet background split', () => {
     state.finalized = true;
     state.executeDelayMs = 0;
     state.sends = [];
+    state.deletedMintOps = [];
+    state.inFlight = [];
+    state.reclaimed = [];
   });
 
   it('boots the manager on warmup', async () => {
     const { wallet } = makeWallet();
     await expect(wallet.warmup()).resolves.toBeUndefined();
+  });
+
+  it('retires the previous pending mint op when issuing a fresh invoice', async () => {
+    const { repo, wallet } = makeWallet();
+    const session = await finalizedSession(repo, wallet);
+    state.finalized = false;
+
+    await wallet.getDepositQuote(session.sessionId);
+
+    expect(state.deletedMintOps).toContain('mint-op-1');
+    expect(repo.getSession(session.sessionId)?.mint_op_id).not.toBe('mint-op-1');
+  });
+
+  it('keeps a finalized mint op when issuing a fresh invoice', async () => {
+    const { repo, wallet } = makeWallet();
+    const session = await finalizedSession(repo, wallet);
+    state.finalized = true;
+    state.deletedMintOps = [];
+
+    await wallet.getDepositQuote(session.sessionId);
+
+    expect(state.deletedMintOps).toHaveLength(0);
   });
 
   it('reports bundlesReady immediately on finalize, without waiting for the ten sends', async () => {
@@ -110,5 +182,63 @@ describe('MinibitsWallet background split', () => {
     const status = await wallet.getDepositStatus(session.sessionId);
     expect(status).toMatchObject({ paid: false, minted: false, bundlesReady: false });
     expect(state.sends).toHaveLength(0);
+  });
+
+  it('combines unlocked tokens by reclaiming their sends into one token', async () => {
+    const { repo, wallet } = makeWallet();
+    const session = await finalizedSession(repo, wallet);
+    await wallet.getDepositStatus(session.sessionId);
+    await waitFor(() => repo.hasBundles(session.sessionId));
+
+    const result = await wallet.combineTokens(session.sessionId, ['impl-rusty', 'kimi-test']);
+    expect(result.combinedCount).toBe(2);
+    expect(result.amountSats).toBe(20);
+    expect(result.skippedRedeemed).toBe(0);
+    // Player-facing tokens are V3 (cashuA…), the format every wallet parses.
+    expect(result.token.startsWith('cashuA')).toBe(true);
+    const parsed = JSON.parse(Buffer.from(result.token.slice(6), 'base64url').toString('utf8')) as {
+      token: Array<{ mint: string; proofs: Array<{ amount: number; secret: string }> }>;
+    };
+    expect(parsed.token[0].mint).toBe('https://mint.test');
+    expect(parsed.token[0].proofs).toHaveLength(1);
+    expect(parsed.token[0].proofs[0].amount).toBe(20);
+    expect(parsed.token[0].proofs[0].secret).toBe('proof-op-10');
+    expect(state.reclaimed).toEqual(['op-0', 'op-4']);
+    expect(repo.getBundle(session.sessionId, 'impl-rusty')?.state).toBe('combined');
+    expect(repo.getBundle(session.sessionId, 'kimi-test')?.state).toBe('combined');
+    await expect(wallet.unlockToken(session.sessionId, 'impl-rusty')).rejects.toMatchObject({
+      code: 'combined',
+    });
+  });
+
+  it('skips tokens whose sends already settled when combining', async () => {
+    const { repo, wallet } = makeWallet();
+    const session = await finalizedSession(repo, wallet);
+    await wallet.getDepositStatus(session.sessionId);
+    await waitFor(() => repo.hasBundles(session.sessionId));
+
+    // impl-rusty's op-0 is gone from the in-flight set: the player redeemed it.
+    state.inFlight = state.inFlight.filter((op) => op.id !== 'op-0');
+
+    const result = await wallet.combineTokens(session.sessionId, ['impl-rusty', 'kimi-test']);
+    expect(result.combinedCount).toBe(1);
+    expect(result.skippedRedeemed).toBe(1);
+    expect(result.amountSats).toBe(10);
+    expect(state.reclaimed).toEqual(['op-4']);
+    expect(repo.getBundle(session.sessionId, 'impl-rusty')?.state).toBe('locked');
+    expect(repo.getBundle(session.sessionId, 'kimi-test')?.state).toBe('combined');
+  });
+
+  it('refuses to combine when every requested token is already redeemed', async () => {
+    const { repo, wallet } = makeWallet();
+    const session = await finalizedSession(repo, wallet);
+    await wallet.getDepositStatus(session.sessionId);
+    await waitFor(() => repo.hasBundles(session.sessionId));
+
+    state.inFlight = [];
+    await expect(wallet.combineTokens(session.sessionId, ['impl-rusty'])).rejects.toMatchObject({
+      code: 'not_ready',
+    });
+    expect(repo.getBundle(session.sessionId, 'impl-rusty')?.state).toBe('locked');
   });
 });

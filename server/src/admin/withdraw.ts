@@ -49,9 +49,13 @@ export interface WithdrawPlan {
 }
 
 export function planWithdraw(bundles: BundleTokenInfo[], sends: SendOpInfo[]): WithdrawPlan {
+  // A combined bundle's sats were re-sent as one token, so like reclaimed it is
+  // dead to the operator sweep.
+  const dead = (bundle: BundleTokenInfo): boolean =>
+    bundle.state === 'reclaimed' || bundle.state === 'combined';
   const bySecret = new Map<string, BundleTokenInfo>();
   for (const bundle of bundles) {
-    if (bundle.state === 'reclaimed' || !bundle.secrets) {
+    if (dead(bundle) || !bundle.secrets) {
       continue;
     }
     for (const secret of bundle.secrets) {
@@ -73,9 +77,9 @@ export function planWithdraw(bundles: BundleTokenInfo[], sends: SendOpInfo[]): W
     }
   }
 
-  const unsweepable = bundles.filter((bundle) => bundle.state !== 'reclaimed' && !matchedBundles.has(bundle));
+  const unsweepable = bundles.filter((bundle) => !dead(bundle) && !matchedBundles.has(bundle));
   const redeemed = unsweepable.filter((bundle) => bundle.secrets !== null).length;
-  const undecodable = bundles.filter((bundle) => bundle.secrets === null && bundle.state !== 'reclaimed');
+  const undecodable = bundles.filter((bundle) => bundle.secrets === null && !dead(bundle));
 
   const warnings: string[] = [];
   if (undecodable.length > 0) {
@@ -85,7 +89,7 @@ export function planWithdraw(bundles: BundleTokenInfo[], sends: SendOpInfo[]): W
   }
 
   // Counts over real tokens only, so mock rows never inflate the picture.
-  const real = bundles.filter((bundle) => bundle.secrets !== null && bundle.state !== 'reclaimed');
+  const real = bundles.filter((bundle) => bundle.secrets !== null && !dead(bundle));
 
   return {
     matched,
@@ -95,7 +99,7 @@ export function planWithdraw(bundles: BundleTokenInfo[], sends: SendOpInfo[]): W
       matchedSats: matched.reduce((sum, m) => sum + m.op.amount, 0),
       orphanSats: orphanSends.reduce((sum, op) => sum + op.amount, 0),
       alreadyReclaimedSats: bundles
-        .filter((b) => b.state === 'reclaimed')
+        .filter((b) => b.state === 'reclaimed' || b.state === 'combined')
         .reduce((sum, b) => sum + b.sats, 0),
       undecodableBundles: undecodable.length,
       redeemedBundles: redeemed,

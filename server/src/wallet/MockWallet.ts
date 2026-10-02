@@ -3,14 +3,21 @@ import {
   ENTRY_AMOUNT_SATS,
   MILESTONE_IDS,
   TOKEN_AMOUNT_SATS,
+  type CombineResponse,
   type DepositQuote,
   type DepositStatus,
   type MilestoneId,
 } from '@cashu-xx/shared';
 import { BaseWallet } from './BaseWallet';
+import { WalletError } from './WalletService';
 
 function mockToken(sessionId: string, milestoneId: MilestoneId): string {
   const payload = { mock: true, sessionId, milestoneId, amount: TOKEN_AMOUNT_SATS };
+  return `cashuA${Buffer.from(JSON.stringify(payload)).toString('base64url')}`;
+}
+
+function mockCombinedToken(sessionId: string, milestoneIds: MilestoneId[], amountSats: number): string {
+  const payload = { mock: true, sessionId, combined: milestoneIds, amount: amountSats };
   return `cashuA${Buffer.from(JSON.stringify(payload)).toString('base64url')}`;
 }
 
@@ -41,6 +48,35 @@ export class MockWallet extends BaseWallet {
       paid: state === 'paid' || state === 'minted',
       minted: state === 'minted',
       bundlesReady: state === 'minted',
+    };
+  }
+
+  async combineTokens(sessionId: string, milestoneIds: MilestoneId[]): Promise<CombineResponse> {
+    const row = this.mustGet(sessionId);
+    const requested = [...new Set(milestoneIds)];
+    if (requested.some((id) => !MILESTONE_IDS.includes(id))) {
+      throw new WalletError('invalid', 'unknown milestone id');
+    }
+    if (!this.repo.hasBundles(row.id)) {
+      throw new WalletError('not_ready', 'tokens not prepared yet — deposit first');
+    }
+    const combined = requested.filter((milestoneId) => {
+      const bundle = this.repo.getBundle(row.id, milestoneId);
+      return bundle?.token && bundle.state !== 'reclaimed' && bundle.state !== 'combined';
+    });
+    if (combined.length === 0) {
+      throw new WalletError('not_ready', 'no combinable tokens — they may already be redeemed');
+    }
+    const amountSats = combined.length * TOKEN_AMOUNT_SATS;
+    const issuedAt = Date.now();
+    for (const milestoneId of combined) {
+      this.repo.markCombined(row.id, milestoneId, issuedAt);
+    }
+    return {
+      token: mockCombinedToken(row.id, combined, amountSats),
+      combinedCount: combined.length,
+      amountSats,
+      skippedRedeemed: requested.length - combined.length,
     };
   }
 }

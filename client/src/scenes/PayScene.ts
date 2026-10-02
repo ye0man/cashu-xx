@@ -5,11 +5,16 @@ import { api, type ApiError } from '../systems/api';
 import { getGameSession } from '../systems/session';
 
 const POLL_MS = 2000;
-const QR_SIZE = 160;
-const QR_Y = 142;
+const QR_SIZE = 140;
+const QR_Y = 128;
 
 function shorten(message: string, max = 64): string {
   return message.length > max ? `${message.slice(0, max - 1)}…` : message;
+}
+
+/** The invoice only needs to be eye-copyable, not fully shown: keep it on screen. */
+function displayInvoice(invoice: string): string {
+  return invoice.length > 350 ? `${invoice.slice(0, 320)}…${invoice.slice(-24)}` : invoice;
 }
 
 export class PayScene extends Phaser.Scene {
@@ -34,21 +39,21 @@ export class PayScene extends Phaser.Scene {
     this.polling = false;
     this.pollError = null;
     this.add
-      .text(240, 26, 'PAY 100 SATS TO PLAY', {
+      .text(240, 24, 'PAY 100 SATS TO PLAY', {
         fontFamily: 'Courier New',
         fontSize: '18px',
         color: '#e8c9a0',
       })
       .setOrigin(0.5);
     this.mintText = this.add
-      .text(240, 48, 'connecting to mint...', {
+      .text(240, 46, 'connecting to mint...', {
         fontFamily: 'Courier New',
         fontSize: '10px',
         color: '#9d5fe0',
       })
       .setOrigin(0.5);
     this.statusText = this.add
-      .text(240, 234, 'creating invoice...', {
+      .text(240, 212, 'creating invoice...', {
         fontFamily: 'Courier New',
         fontSize: '12px',
         color: '#f7e7cf',
@@ -57,28 +62,28 @@ export class PayScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.invoiceText = this.add
-      .text(240, 262, '', {
+      .text(240, 228, '', {
         fontFamily: 'Courier New',
-        fontSize: '9px',
+        fontSize: '8px',
         color: '#b0a8bd',
-        wordWrap: { width: 420 },
+        wordWrap: { width: 430 },
         align: 'center',
       })
       .setOrigin(0.5, 0);
-    this.add
-      .text(240, 302, 'scan with any lightning wallet · C copy · R new invoice', {
-        fontFamily: 'Courier New',
-        fontSize: '10px',
-        color: '#6b6478',
-      })
-      .setOrigin(0.5);
 
     const session = getGameSession();
     this.add
-      .text(240, 288, `TRAINER ID: ${session?.claimCode ?? '—'}  (T copies — save it!)`, {
+      .text(240, 278, `TRAINER ID: ${session?.claimCode ?? '—'}  (T copies — save it!)`, {
         fontFamily: 'Courier New',
-        fontSize: '11px',
+        fontSize: '10px',
         color: '#9d5fe0',
+      })
+      .setOrigin(0.5);
+    this.add
+      .text(240, 296, 'scan with any lightning wallet · C copy · R new invoice', {
+        fontFamily: 'Courier New',
+        fontSize: '9px',
+        color: '#6b6478',
       })
       .setOrigin(0.5);
 
@@ -135,7 +140,7 @@ export class PayScene extends Phaser.Scene {
     this.statusText.setText('creating invoice...');
     try {
       this.quote = await api.deposit(session.sessionId);
-      this.invoiceText.setText(this.quote.invoice);
+      this.invoiceText.setText(displayInvoice(this.quote.invoice));
       this.statusText.setText('AWAITING PAYMENT — 100 sats');
       await this.showQr(this.quote.invoice);
       this.startTimers();

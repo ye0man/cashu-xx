@@ -1,5 +1,6 @@
 import type {
   ClaimResponse,
+  CombineResponse,
   CreateSessionResponse,
   DepositQuote,
   DepositStatus,
@@ -8,7 +9,7 @@ import type {
   UnlockResponse,
 } from '@cashu-xx/shared';
 
-export type WalletErrorCode = 'not_found' | 'unauthorized' | 'not_ready' | 'invalid' | 'reclaimed';
+export type WalletErrorCode = 'not_found' | 'unauthorized' | 'not_ready' | 'invalid' | 'reclaimed' | 'combined';
 
 export class WalletError extends Error {
   constructor(
@@ -27,6 +28,7 @@ export interface WalletService {
   getDepositQuote(sessionId: string): Promise<DepositQuote>;
   getDepositStatus(sessionId: string): Promise<DepositStatus>;
   unlockToken(sessionId: string, milestoneId: MilestoneId): Promise<UnlockResponse>;
+  combineTokens(sessionId: string, milestoneIds: MilestoneId[]): Promise<CombineResponse>;
   getLedger(sessionId: string): Promise<LedgerRow[]>;
   /** Optional: boot expensive wallet dependencies ahead of the first request. */
   warmup?(): Promise<void>;

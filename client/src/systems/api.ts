@@ -1,5 +1,6 @@
 import type {
   ClaimResponse,
+  CombineResponse,
   CreateSessionResponse,
   DepositQuote,
   DepositStatus,
@@ -81,6 +82,12 @@ export const api = {
     request<UnlockResponse>(`/api/session/${sessionId}/unlock`, {
       method: 'POST',
       body: { milestoneId },
+      auth: true,
+    }),
+  combine: (sessionId: string, milestoneIds: MilestoneId[]) =>
+    request<CombineResponse>(`/api/session/${sessionId}/combine`, {
+      method: 'POST',
+      body: { milestoneIds },
       auth: true,
     }),
   ledger: (sessionId: string) => request<LedgerResponse>(`/api/session/${sessionId}/ledger`, { auth: true }),

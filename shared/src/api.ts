@@ -41,6 +41,16 @@ export interface UnlockResponse {
   issuedAt: number;
 }
 
+export const CombineBodySchema = z.object({ milestoneIds: z.array(z.enum(MILESTONE_IDS)).min(1) });
+export type CombineBody = z.infer<typeof CombineBodySchema>;
+
+export interface CombineResponse {
+  token: string;
+  combinedCount: number;
+  amountSats: number;
+  skippedRedeemed: number;
+}
+
 export interface LedgerResponse {
   ledger: LedgerRow[];
 }

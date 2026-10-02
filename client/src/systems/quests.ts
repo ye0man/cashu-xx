@@ -10,6 +10,7 @@ export const STORY_FLAGS = {
   awaitingImpl: 'awaiting_impl',
   recordFound: 'record_found',
   djmacAsked: 'djmac_asked',
+  meltHinted: 'melt_hinted',
 } as const;
 
 export function hasFlag(flag: string): boolean {

@@ -1,9 +1,11 @@
 import { mkdirSync } from 'node:fs';
 import type { Manager } from '@cashu/coco-core';
+import type { SqliteRepositories } from '@cashu/coco-sqlite';
 import {
   ENTRY_AMOUNT_SATS,
   MILESTONE_IDS,
   TOKEN_AMOUNT_SATS,
+  type CombineResponse,
   type DepositQuote,
   type DepositStatus,
   type MilestoneId,
@@ -12,6 +14,7 @@ import {
 import type { Repo } from '../db/repo';
 import { BaseWallet } from './BaseWallet';
 import { openCocoManager } from './coco';
+import { encodeV3Token } from './token-v3';
 import { WalletError } from './WalletService';
 
 export interface MinibitsWalletOptions {
@@ -30,6 +33,7 @@ export class MinibitsWallet extends BaseWallet {
   private readonly mintUrl: string;
   private readonly dataDir: string;
   private managerPromise: Promise<Manager> | null = null;
+  private repositories: SqliteRepositories | null = null;
   private readonly splits = new Map<string, Promise<void>>();
 
   constructor(repo: Repo, options: MinibitsWalletOptions) {
@@ -52,7 +56,8 @@ export class MinibitsWallet extends BaseWallet {
   }
 
   private async boot(): Promise<Manager> {
-    const { manager } = await openCocoManager({ mintUrl: this.mintUrl, dataDir: this.dataDir });
+    const { manager, repositories } = await openCocoManager({ mintUrl: this.mintUrl, dataDir: this.dataDir });
+    this.repositories = repositories;
     return manager;
   }
 
@@ -64,6 +69,7 @@ export class MinibitsWallet extends BaseWallet {
   async getDepositQuote(sessionId: string): Promise<DepositQuote> {
     const row = this.mustGet(sessionId);
     const manager = await this.manager();
+    await this.retirePendingMintOp(manager, row.mint_op_id);
     const quote = await manager.quotes.mint.create({
       mintUrl: this.mintUrl,
       method: 'bolt11',
@@ -138,6 +144,110 @@ export class MinibitsWallet extends BaseWallet {
     return super.unlockToken(sessionId, milestoneId);
   }
 
+  async combineTokens(sessionId: string, milestoneIds: MilestoneId[]): Promise<CombineResponse> {
+    const row = this.mustGet(sessionId);
+    const requested = [...new Set(milestoneIds)];
+    if (requested.length === 0 || requested.some((id) => !MILESTONE_IDS.includes(id))) {
+      throw new WalletError('invalid', 'unknown milestone id');
+    }
+    if (!this.repo.hasBundles(row.id)) {
+      if (row.state !== 'paid' && row.state !== 'minted') {
+        throw new WalletError('not_ready', 'tokens not prepared yet — deposit first');
+      }
+      await this.splitLocked(row.id);
+    }
+    const manager = await this.manager();
+
+    // Each milestone token is the output of its own send. While the player has
+    // not redeemed it, that send is still in flight, so reclaiming it returns
+    // the sats to our spendable balance and kills the player's token. Sends
+    // that already settled mean the token was redeemed — skip those.
+    const opBySecret = new Map<string, { id: string; state: string }>();
+    for (const op of await manager.ops.send.listInFlight()) {
+      const token = 'token' in op ? op.token : undefined;
+      if (!token) {
+        continue;
+      }
+      for (const proof of token.proofs) {
+        opBySecret.set(proof.secret, { id: op.id, state: op.state });
+      }
+    }
+
+    const combined: MilestoneId[] = [];
+    let skippedRedeemed = 0;
+    for (const milestoneId of requested) {
+      const bundle = this.repo.getBundle(row.id, milestoneId);
+      if (!bundle?.token || bundle.state === 'reclaimed' || bundle.state === 'combined') {
+        skippedRedeemed += 1;
+        continue;
+      }
+      try {
+        const decoded = await manager.wallet.decodeToken(bundle.token, this.mintUrl);
+        if (decoded.mint !== this.mintUrl) {
+          throw new Error('token is not for this mint');
+        }
+        const op = decoded.proofs.map((proof) => opBySecret.get(proof.secret)).find((found) => found !== undefined);
+        if (!op) {
+          throw new Error('token already redeemed');
+        }
+        if (op.state === 'prepared') {
+          await manager.ops.send.cancel(op.id);
+        } else {
+          await manager.ops.send.reclaim(op.id);
+        }
+        combined.push(milestoneId);
+      } catch {
+        skippedRedeemed += 1;
+      }
+    }
+
+    if (combined.length === 0) {
+      throw new WalletError('not_ready', 'no combinable tokens — they may already be redeemed');
+    }
+    const amountSats = combined.length * TOKEN_AMOUNT_SATS;
+    const token = await this.sendAmount(manager, amountSats);    const issuedAt = Date.now();
+    for (const milestoneId of combined) {
+      this.repo.markCombined(row.id, milestoneId, issuedAt);
+    }
+    return { token, combinedCount: combined.length, amountSats, skippedRedeemed };
+  }
+
+  /** Send a fixed amount as one token, stepping down a little only for fee/denomination reasons. */
+  private async sendAmount(manager: Manager, amount: number): Promise<string> {
+    let lastError: unknown;
+    for (let tryAmount = amount; tryAmount >= Math.max(1, amount - 20); tryAmount -= 1) {
+      try {
+        const prepared = await manager.ops.send.prepare({
+          mintUrl: this.mintUrl,
+          amount: tryAmount,
+          unit: 'sat',
+        });
+        const { token } = await manager.ops.send.execute(prepared);
+        return encodeV3Token(token);
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    throw new WalletError('not_ready', `could not combine tokens: ${(lastError as Error)?.message ?? 'mint error'}`);
+  }
+
+  /** A fresh invoice replaces the session's previous one; retire the old mint op first. */
+  private async retirePendingMintOp(manager: Manager, operationId: string | null): Promise<void> {
+    if (!operationId || !this.repositories) {
+      return;
+    }
+    try {
+      // Only drop operations that cannot settle on their own. A paid or
+      // executing op is mid-redemption — leave it for the poll/unlock path.
+      const op = await manager.ops.mint.get(operationId);
+      if (!op || op.state === 'init' || op.state === 'pending') {
+        await this.repositories.mintOperationRepository.delete(operationId);
+      }
+    } catch (err) {
+      console.error('mint op retirement failed', operationId, err);
+    }
+  }
+
   /** Fire-and-forget split for the status poll; errors surface on the next await (unlock or poll). */
   private startSplit(sessionId: string): void {
     void this.splitLocked(sessionId).catch((err: unknown) => {
@@ -173,7 +283,7 @@ export class MinibitsWallet extends BaseWallet {
         unit: 'sat',
       });
       const { token } = await manager.ops.send.execute(prepared);
-      seeds.push({ milestoneId, token: manager.wallet.encodeToken(token) });
+      seeds.push({ milestoneId, token: encodeV3Token(token) });
     }
     this.repo.createBundles(sessionId, seeds);
   }

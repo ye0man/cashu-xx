@@ -89,4 +89,41 @@ describe('MockWallet', () => {
     expect(row?.state).toBe('issued');
     expect(row?.issuedAt).toBe(first.issuedAt);
   });
+
+  it('combines unlocked tokens into one token and blocks re-unlocking them', async () => {
+    const session = await wallet.createSession();
+    await wallet.getDepositQuote(session.sessionId);
+    await wallet.getDepositStatus(session.sessionId);
+
+    const result = await wallet.combineTokens(session.sessionId, ['impl-rusty', 'kimi-test']);
+    expect(result.combinedCount).toBe(2);
+    expect(result.amountSats).toBe(20);
+    expect(result.skippedRedeemed).toBe(0);
+    expect(result.token.startsWith('cashuA')).toBe(true);
+
+    const ledger = await wallet.getLedger(session.sessionId);
+    expect(ledger.find((row) => row.milestoneId === 'impl-rusty')?.state).toBe('combined');
+    expect(ledger.find((row) => row.milestoneId === 'kimi-test')?.state).toBe('combined');
+
+    await expect(wallet.unlockToken(session.sessionId, 'impl-rusty')).rejects.toMatchObject({
+      code: 'combined',
+    });
+    const untouched = await wallet.unlockToken(session.sessionId, 'hidden-pos');
+    expect(untouched.token.startsWith('cashuA')).toBe(true);
+  });
+
+  it('rejects combine before the deposit and with nothing combinable', async () => {
+    const session = await wallet.createSession();
+    await expect(wallet.combineTokens(session.sessionId, ['ceremony'])).rejects.toMatchObject({
+      code: 'not_ready',
+    });
+
+    await wallet.getDepositQuote(session.sessionId);
+    await wallet.getDepositStatus(session.sessionId);
+    const again = await wallet.combineTokens(session.sessionId, ['impl-rusty']);
+    expect(again.combinedCount).toBe(1);
+    await expect(wallet.combineTokens(session.sessionId, ['impl-rusty'])).rejects.toMatchObject({
+      code: 'not_ready',
+    });
+  });
 });

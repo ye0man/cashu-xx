@@ -3,41 +3,21 @@ import { MILESTONE_IDS, MILESTONE_LABELS } from '@cashu-xx/shared';
 import { audio } from '../systems/audio';
 import { earnedMilestones } from '../systems/quests';
 
-export class EndingScene extends Phaser.Scene {
-  private readonly credits: string[] = [
-    'CASHU-XX',
-    '',
-    'you entered as a placeholder.',
-    'you leave as NUT-31.',
-    '',
-    '10 / 10 TOKENS CLAIMED',
-    'the full 100 sats came home.',
-    '',
-    '— CAST —',
-    'XX the placeholder nut',
-    'PROF. HICKORY the maintainer',
-    'RUSTY of cdk',
-    'COCO of cashu-ts + coco',
-    'PIP of nutshell',
-    'DJ MAC the macadamia',
-    'KIMI of the red team',
-    'the RECEPTIONIST of Minibits HQ',
-    'and 32 very opinionated signs',
-    '',
-    '— THE REAL PROCESS —',
-    'open an issue. use NUT-XX.',
-    'get two reviews. write MUST/SHOULD/MAY.',
-    'land two implementation PRs.',
-    'spec merges first.',
-    'go build one: github.com/cashubtc/nuts',
-    '',
-    'built on cashu. mint is best-effort.',
-    '',
-    'THE END',
-    '',
-    'PRESS ENTER TO RETURN TO THE TITLE',
-  ];
+const BODY_STYLE = {
+  fontFamily: 'Courier New',
+  fontSize: '9px',
+  color: '#b0a8bd',
+  lineSpacing: 2,
+} as const;
 
+const LEDGER_STYLE = {
+  fontFamily: 'Courier New',
+  fontSize: '9px',
+  color: '#6b6478',
+  lineSpacing: 2,
+} as const;
+
+export class EndingScene extends Phaser.Scene {
   constructor() {
     super({ key: 'EndingScene' });
   }
@@ -46,37 +26,61 @@ export class EndingScene extends Phaser.Scene {
     audio.playTheme('ceremony');
     const earned = earnedMilestones();
     const width = this.scale.width;
+    const center = (y: number, text: string, size: string, color: string): void => {
+      this.add
+        .text(width / 2, y, text, { fontFamily: 'Courier New', fontSize: size, color })
+        .setOrigin(0.5);
+    };
 
-    this.add
-      .text(width / 2, 40, 'NUT-31', {
-        fontFamily: 'Courier New',
-        fontSize: '36px',
-        color: '#e8c9a0',
-      })
-      .setOrigin(0.5);
+    center(18, 'NUT-31', '24px', '#e8c9a0');
+    center(42, 'you entered as a placeholder. you leave as NUT-31.', '10px', '#b0a8bd');
+    center(56, `${earned.length}/10 TOKENS CLAIMED — the full 100 sats came home.`, '10px', '#b0a8bd');
 
-    const body = this.add.text(width / 2, 90, this.credits.join('\n'), {
-      fontFamily: 'Courier New',
-      fontSize: '11px',
-      color: '#b0a8bd',
-      align: 'center',
-      lineSpacing: 4,
-    });
-    body.setOrigin(0.5, 0);
+    // Two half-width columns keep every credit on screen at once — no scroll.
+    this.add.text(20, 74, '— CAST —', BODY_STYLE);
+    this.add.text(250, 74, '— THE REAL PROCESS —', BODY_STYLE);
+    this.add.text(
+      20,
+      88,
+      [
+        'XX the placeholder nut',
+        'PROF. HICKORY the maintainer',
+        'RUSTY of cdk',
+        'COCO of cashu-ts + coco',
+        'PIP of nutshell',
+        'DJ MAC the macadamia',
+        'KIMI of the red team',
+        'the RECEPTIONIST of Minibits HQ',
+        'and 32 very opinionated signs',
+      ].join('\n'),
+      BODY_STYLE,
+    );
+    this.add.text(
+      250,
+      88,
+      [
+        'open an issue. use NUT-XX.',
+        'get two reviews. MUST/SHOULD/MAY.',
+        'land two implementation PRs.',
+        'spec merges first.',
+        'go build one:',
+        'github.com/cashubtc/nuts',
+        '',
+        'built on cashu. mint is best-effort.',
+      ].join('\n'),
+      BODY_STYLE,
+    );
 
     const tally = MILESTONE_IDS.map((id, index) => {
       const done = earned.includes(id);
       return `${done ? '[x]' : '[ ]'} ${index + 1}. ${MILESTONE_LABELS[id]}`;
-    }).join('\n');
-    this.add
-      .text(24, this.scale.height - 74, `TOKEN LEDGER (${earned.length}/10)\n${tally}`, {
-        fontFamily: 'Courier New',
-        fontSize: '8px',
-        color: '#6b6478',
-      })
-      .setOrigin(0, 1);
+    });
+    this.add.text(20, 196, `— TOKEN LEDGER (${earned.length}/10) —`, BODY_STYLE);
+    this.add.text(20, 210, tally.slice(0, 5).join('\n'), LEDGER_STYLE);
+    this.add.text(250, 210, tally.slice(5).join('\n'), LEDGER_STYLE);
 
-    this.tweens.add({ targets: body, y: body.y - 20, duration: 4000, yoyo: true, repeat: -1 });
+    center(276, 'THE END', '12px', '#e8c9a0');
+    center(296, 'PRESS ENTER TO RETURN TO THE TITLE', '9px', '#6b6478');
 
     const keyboard = this.input.keyboard;
     if (keyboard) {

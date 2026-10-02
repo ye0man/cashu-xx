@@ -5,8 +5,11 @@ import { TEXT_SPEED_MS, getSettings } from '../systems/settings';
 
 export class DialogManager {
   private readonly container: Phaser.GameObjects.Container;
+  private readonly panel: Phaser.GameObjects.Rectangle;
   private readonly speakerText: Phaser.GameObjects.Text;
   private readonly bodyText: Phaser.GameObjects.Text;
+  private readonly viewWidth: number;
+  private readonly viewHeight: number;
   private readonly actionKeys: Phaser.Input.Keyboard.Key[];
   private readonly upKey: Phaser.Input.Keyboard.Key;
   private readonly downKey: Phaser.Input.Keyboard.Key;
@@ -22,9 +25,11 @@ export class DialogManager {
   constructor(scene: Phaser.Scene) {
     const width = scene.scale.width;
     const height = scene.scale.height;
+    this.viewWidth = width;
+    this.viewHeight = height;
 
     this.container = scene.add.container(0, 0).setScrollFactor(0).setDepth(100).setVisible(false);
-    const panel = scene.add
+    this.panel = scene.add
       .rectangle(8, height - 92, width - 16, 84, 0x1e1036, 0.96)
       .setOrigin(0)
       .setStrokeStyle(2, 0xe8c9a0);
@@ -39,7 +44,7 @@ export class DialogManager {
       color: '#f7e7cf',
       wordWrap: { width: width - 44 },
     });
-    this.container.add([panel, this.speakerText, this.bodyText]);
+    this.container.add([this.panel, this.speakerText, this.bodyText]);
 
     const keyboard = scene.input.keyboard;
     if (!keyboard) {
@@ -69,9 +74,31 @@ export class DialogManager {
     this.choosing = false;
     this.onDone = onDone ?? null;
     this.speakerText.setText(script.speaker ?? '');
+    this.layoutPanel(script);
     this.container.setVisible(true);
     audio.playSfx('sfx-text');
     this.renderLine();
+  }
+
+  /**
+   * Choice rows and wrapped lines both need body room. The default 84px panel
+   * stays for ordinary two-line chatter; taller scripts grow the box upward so
+   * nothing spills past the screen edge.
+   */
+  private layoutPanel(script: DialogueScript): void {
+    const wrapWidth = this.viewWidth - 44;
+    // Courier New at 13px advances ~7.8px per character.
+    const rowsFor = (line: string): number => Math.max(1, Math.ceil((line.length * 7.8) / wrapWidth));
+    const lastLine = script.lines[script.lines.length - 1] ?? '';
+    const rows = script.choices?.length
+      ? rowsFor(lastLine) + script.choices.length
+      : Math.max(1, ...script.lines.map(rowsFor));
+    const panelHeight = Math.min(this.viewHeight - 16, Math.max(84, 30 + rows * 16));
+    const top = this.viewHeight - 8 - panelHeight;
+    this.panel.setSize(this.viewWidth - 16, panelHeight);
+    this.panel.setPosition(8, top);
+    this.speakerText.setPosition(18, top + 6);
+    this.bodyText.setPosition(18, top + 26);
   }
 
   update(delta: number): void {

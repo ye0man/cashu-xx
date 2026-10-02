@@ -14,7 +14,7 @@ import type { QRPanel } from '../ui/QRPanel';
 import { audio } from './audio';
 import { runQuestions, runShellRounds, runTraceOrder } from './challenges';
 import { STORY_FLAGS, earnedMilestones, getJournal, hasFlag, hiddenFound, setFlag } from './quests';
-import { showTokenClaim } from './tokens';
+import { combineUnlockedTokens, showTokenClaim } from './tokens';
 
 export interface StoryContext {
   scene: Phaser.Scene;
@@ -140,12 +140,56 @@ async function talkHickory(ctx: StoryContext): Promise<void> {
     return;
   }
 
+  const earned = earnedMilestones().length;
+  if (earned < 10) {
+    await dialog.openAsync({
+      speaker: 'PROF. HICKORY',
+      lines: [
+        `NUT-31! The spec survives because three codebases hum in tune. Tokens: ${earned}/10.`,
+        'Find them all, then come back. When the ledger is spotless, we melt — and that, NUT-31, is the end of the road.',
+      ],
+    });
+    return;
+  }
+
+  const choice = await dialog.openAsync({
+    speaker: 'PROF. HICKORY',
+    lines: [
+      'The ledger is spotless: 10/10 tokens. One ritual remains: the melt.',
+      'Hand me the tokens and I’ll melt them down. The spending condition fires, the sats move on, and NUT-31 stands on its own.',
+    ],
+    choices: [
+      { id: 'melt', label: 'Melt the tokens (ends the game)' },
+      { id: 'wait', label: 'Not yet' },
+    ],
+  });
+  if (choice === 'melt') {
+    await runMelt(ctx);
+    return;
+  }
+  await dialog.openAsync({
+    speaker: 'PROF. HICKORY',
+    lines: ['Take your time. The mint is patient. Mostly.'],
+  });
+}
+
+async function runMelt(ctx: StoryContext): Promise<void> {
+  const dialog = ctx.dialog;
+  audio.playTheme('ceremony');
   await dialog.openAsync({
     speaker: 'PROF. HICKORY',
     lines: [
-      'NUT-31! The spec survives because three codebases hum in tune. Check the hidden tokens with the receptionist.',
+      'Then it is time. Ten tokens in. One spending condition out.',
+      'Watch closely: the proofs vanish, the sats fly home, and a spec stands on its own two feet.',
     ],
   });
+  flashNumber(ctx, 'MELT');
+  await delay(2100);
+  await dialog.openAsync({
+    speaker: 'PROF. HICKORY',
+    lines: ['It is done. You were a fine NUT, NUT-31.'],
+  });
+  ctx.scene.scene.start('EndingScene');
 }
 
 async function runCeremony(ctx: StoryContext): Promise<void> {
@@ -182,7 +226,7 @@ async function runCeremony(ctx: StoryContext): Promise<void> {
     ],
   });
   flashNumber(ctx, 'NUT-31');
-  await delay(1400);
+  await delay(2100);
   await dialog.openAsync({
     speaker: 'PROF. HICKORY',
     lines: ['The maintainers assigned your number: NUT-31. Wear it well. Go find your tokens.'],
@@ -342,17 +386,22 @@ async function talkReceptionist(ctx: StoryContext): Promise<void> {
     speaker: 'RECEPTIONIST',
     choices: [
       { id: 'tokens', label: 'Show my tokens' },
+      { id: 'combine', label: 'Combine my unlocked tokens' },
       { id: 'report', label: 'Status report' },
       { id: 'bye', label: 'Goodbye' },
     ],
     lines: [
       earned >= 10
-        ? 'NUT-31! Ledger spotless: 10/10 tokens. The mint is still best-effort, though.'
+        ? 'NUT-31! Ledger spotless: 10/10 tokens. When you’re ready, the professor does the melt.'
         : `Welcome to Minibits HQ. Tokens earned: ${earned}/10. Hidden finds: ${hidden}/4.`,
     ],
   });
   if (choice === 'tokens') {
     ctx.openTokenBank();
+    return;
+  }
+  if (choice === 'combine') {
+    await combineUnlockedTokens(ctx);
     return;
   }
   if (choice === 'report') {
@@ -361,6 +410,7 @@ async function talkReceptionist(ctx: StoryContext): Promise<void> {
       lines: [
         `Hidden tokens found: ${hidden}/4. Total tokens earned: ${earned}/10.`,
         'The lobby coffee is free. The ecash is yours to find. Ask around — trash cans lie.',
+        'I can also combine your unlocked tokens into one big token. Fewer things to lose.',
       ],
     });
   }
@@ -382,23 +432,39 @@ async function maybeLabelAwaitingImpl(ctx: StoryContext): Promise<void> {
 }
 
 function flashNumber(ctx: StoryContext, label: string): void {
-  const text = ctx.scene.add
-    .text(ctx.scene.scale.width / 2, ctx.scene.scale.height / 2, label, {
+  const scene = ctx.scene;
+  const cx = scene.scale.width / 2;
+  const cy = scene.scale.height / 2;
+  // Dim the world behind the number so it reads even against busy tiles.
+  const backdrop = scene.add
+    .rectangle(cx, cy, scene.scale.width, scene.scale.height, 0x120a24, 0.9)
+    .setOrigin(0.5)
+    .setScrollFactor(0)
+    .setDepth(119);
+  const text = scene.add
+    .text(cx, cy, label, {
       fontFamily: 'Courier New',
-      fontSize: '28px',
+      fontSize: '40px',
       color: '#f7e7cf',
+      stroke: '#7b2fbe',
+      strokeThickness: 8,
     })
     .setOrigin(0.5)
     .setScrollFactor(0)
     .setDepth(120)
-    .setScale(0.6);
-  ctx.scene.tweens.add({
-    targets: text,
-    scale: 2.4,
+    .setScale(0.8);
+  audio.playSfx('sfx-token');
+  // Hold it big and fully opaque, then fade out; the caller waits out the flash.
+  scene.tweens.add({ targets: text, scale: 1.5, duration: 1600, ease: 'Cubic.easeOut' });
+  scene.tweens.add({
+    targets: [text, backdrop],
     alpha: 0,
-    duration: 1600,
-    ease: 'Cubic.easeOut',
-    onComplete: () => text.destroy(),
+    delay: 1400,
+    duration: 700,
+    onComplete: () => {
+      text.destroy();
+      backdrop.destroy();
+    },
   });
 }
 

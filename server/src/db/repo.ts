@@ -118,6 +118,14 @@ export class Repo {
       .run(sessionId, milestoneId);
   }
 
+  markCombined(sessionId: string, milestoneId: MilestoneId, at: number): void {
+    this.db
+      .prepare(
+        `UPDATE bundles SET state = 'combined', unlocked_at = COALESCE(unlocked_at, ?), issued_at = ? WHERE session_id = ? AND milestone_id = ?`,
+      )
+      .run(at, at, sessionId, milestoneId);
+  }
+
   listAllBundles(): BundleRow[] {
     return this.db.prepare('SELECT * FROM bundles ORDER BY rowid').all() as BundleRow[];
   }
