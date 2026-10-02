@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   ENTRY_AMOUNT_SATS,
+  isDeadBundleState,
   MILESTONE_IDS,
   TOKEN_AMOUNT_SATS,
   type CombineResponse,
@@ -60,10 +61,18 @@ export class MockWallet extends BaseWallet {
     if (!this.repo.hasBundles(row.id)) {
       throw new WalletError('not_ready', 'tokens not prepared yet — deposit first');
     }
-    const combined = requested.filter((milestoneId) => {
-      const bundle = this.repo.getBundle(row.id, milestoneId);
-      return bundle?.token && bundle.state !== 'reclaimed' && bundle.state !== 'combined';
-    });
+    // Fold requested tokens together with anything a previous attempt left in
+    // `combining`, so a retry finishes the job instead of erroring out.
+    const requestedSet = new Set(requested);
+    const combined = this.repo
+      .listBundles(row.id)
+      .filter(
+        (bundle) =>
+          bundle.token &&
+          !isDeadBundleState(bundle.state) &&
+          (requestedSet.has(bundle.milestone_id) || bundle.state === 'combining'),
+      )
+      .map((bundle) => bundle.milestone_id);
     if (combined.length === 0) {
       throw new WalletError('not_ready', 'no combinable tokens — they may already be redeemed');
     }
@@ -76,7 +85,7 @@ export class MockWallet extends BaseWallet {
       token: mockCombinedToken(row.id, combined, amountSats),
       combinedCount: combined.length,
       amountSats,
-      skippedRedeemed: requested.length - combined.length,
+      skippedRedeemed: requested.filter((id) => !combined.includes(id)).length,
     };
   }
 }

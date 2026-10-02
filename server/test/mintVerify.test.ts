@@ -1,5 +1,29 @@
+import { CURATED_MINTS, DEFAULT_MINT_URL, isValidMintUrl, normalizeMintUrl } from '@cashu-xx/shared';
 import { describe, expect, it } from 'vitest';
-import { MintMonitor, parseInfoBody, parseKeysBody } from '../src/wallet/mintVerify';
+import {
+  MintDirectory,
+  MintMonitor,
+  parseInfoBody,
+  parseKeysBody,
+  parseSupportsMint,
+} from '../src/wallet/mintVerify';
+
+describe('normalizeMintUrl', () => {
+  it('canonicalizes host case and trailing slashes', () => {
+    expect(normalizeMintUrl('  https://Mint.Example/Bitcoin/  ')).toBe('https://mint.example/Bitcoin');
+  });
+
+  it('rejects non-http(s) and malformed values', () => {
+    expect(isValidMintUrl('ftp://mint.example')).toBe(false);
+    expect(isValidMintUrl('mint.example')).toBe(false);
+    expect(isValidMintUrl('')).toBe(false);
+    expect(isValidMintUrl(undefined)).toBe(false);
+  });
+
+  it('ships Minibits as the curated default', () => {
+    expect(CURATED_MINTS[0]?.url).toBe(DEFAULT_MINT_URL);
+  });
+});
 
 describe('mint verification parsing', () => {
   it('parses the Minibits info shape', () => {
@@ -37,11 +61,33 @@ describe('mint verification parsing', () => {
     });
     expect(keys.feePpk).toBe(0);
   });
+
+  it('reads bolt11 minting support from NUT-06 nuts, permissively', () => {
+    expect(parseSupportsMint({ nuts: { 4: {}, 5: {} } })).toBe(true);
+    expect(parseSupportsMint({ nuts: { 5: {}, 7: {} } })).toBe(false);
+    // Some mints omit `nuts`; don't block them.
+    expect(parseSupportsMint({})).toBe(true);
+  });
 });
 
 describe('MintMonitor', () => {
-  const online = { online: true, name: 'Minibits mint', description: '', feePpk: 0 };
-  const offline = { online: false, name: '', description: '', feePpk: 0, error: 'fetch failed' };
+  const online = {
+    url: 'https://mint.example',
+    online: true,
+    name: 'Minibits mint',
+    description: '',
+    feePpk: 0,
+    compatible: true,
+  };
+  const offline = {
+    url: 'https://mint.example',
+    online: false,
+    name: '',
+    description: '',
+    feePpk: 0,
+    compatible: false,
+    error: 'fetch failed',
+  };
 
   it('re-checks while offline so a transient failure heals itself', async () => {
     const answers = [offline, online];
@@ -62,5 +108,33 @@ describe('MintMonitor', () => {
     await Promise.all([monitor.get(), monitor.get(), monitor.get()]);
     await monitor.get();
     expect(calls).toBe(1);
+  });
+});
+
+describe('MintDirectory', () => {
+  it('verifies curated mints and labels them, reusing one monitor per URL', async () => {
+    let calls = 0;
+    const directory = new MintDirectory(async (url) => {
+      calls += 1;
+      return {
+        url,
+        online: true,
+        name: 'Test mint',
+        description: '',
+        feePpk: 0,
+        compatible: true,
+      };
+    });
+    const curated = [
+      { url: 'https://a.example', label: 'A' },
+      { url: 'https://b.example', label: 'B' },
+    ];
+    const list = await directory.list(curated);
+    expect(list.map((m) => m.label)).toEqual(['A', 'B']);
+    expect(list.every((m) => m.online)).toBe(true);
+    expect(calls).toBe(2);
+    // A second read is served from the cached monitor.
+    await directory.list(curated);
+    expect(calls).toBe(2);
   });
 });

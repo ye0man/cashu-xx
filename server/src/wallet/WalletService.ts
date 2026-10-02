@@ -22,7 +22,8 @@ export class WalletError extends Error {
 }
 
 export interface WalletService {
-  createSession(): Promise<CreateSessionResponse>;
+  /** Locks a new session to `mintUrl` (normalized); omitted/undefined uses the default mint. */
+  createSession(mintUrl?: string): Promise<CreateSessionResponse>;
   recoverSession(claimCode: string): Promise<ClaimResponse>;
   authenticate(sessionId: string, authToken: string): Promise<boolean>;
   getDepositQuote(sessionId: string): Promise<DepositQuote>;

@@ -21,8 +21,9 @@
 ```
 
 Deployment target for v1: **local-only** (`npm run dev` runs client + server on the
-player's machine against the real public Minibits mint). Hosting is a later
-decision; nothing in the design precludes a remote host later.
+player's machine against a real public mint, default Minibits, selectable from the
+mint directory). Hosting is a later decision; nothing in the design precludes a
+remote host later.
 
 ### Verified facts (Minibits mint, checked live)
 
@@ -62,17 +63,24 @@ One interface, two implementations:
 
 ```ts
 interface WalletService {
-  createSession(): Promise<{ sessionId: string; claimCode: string }>;
+  createSession(mintUrl?: string): Promise<{ sessionId: string; claimCode: string; mintUrl: string }>;
   getDepositQuote(sessionId: string): Promise<{ invoice: string; quoteId: string; expiresAt: number }>;
   getDepositStatus(sessionId: string): Promise<{ paid: boolean; minted: boolean }>;
   unlockToken(sessionId: string, milestoneId: MilestoneId): Promise<{ token: string; issuedAt: number }>;
   getLedger(sessionId: string): Promise<LedgerRow[]>;
-  recoverSession(claimCode: string): Promise<{ sessionId: string; ledger: LedgerRow[] }>;
+  recoverSession(claimCode: string): Promise<{ sessionId: string; ledger: LedgerRow[]; mintUrl: string }>;
 }
 ```
 
 - **`MinibitsWallet`** — production. Uses `@cashu/coco-core` (proof management,
-  quote lifecycle, typed event bus) with `@cashu/coco-sqlite` storage.
+  quote lifecycle, typed event bus) with `@cashu/coco-sqlite` storage. One coco
+  manager serves every mint: each session is locked to a mint URL (default
+  Minibits), and the mint's keysets are added lazily (`manager.mint.addMint`) on
+  first use. `createSession` verifies the chosen mint (NUT-06 + NUT-02) and
+  rejects only unreachable mints. Fee-bearing mints are supported: the split
+  measures the per-send input fee and shaves it off each bundle, so the player
+  redeems the entry amount **net of fees** (e.g. a 1-sat fee yields ten 9-sat
+  tokens) instead of the last send failing.
   **Fallback library:** `@cashu/cashu-ts` if coco hits rough edges (same interface).
 - **`MockWallet`** — dev/test. Instantly marks deposits paid and fabricates
   plausible `cashuA` strings. Selected with `WALLET=mock`. Same interface, so all
@@ -91,6 +99,8 @@ hidden-pos · hidden-library · hidden-tower · hidden-booth
 CREATE TABLE sessions (
   id TEXT PRIMARY KEY,            -- uuid
   claim_code TEXT UNIQUE NOT NULL,-- "Trainer ID", e.g. NUT-7K3M-QX2F
+  auth_token TEXT NOT NULL,       -- short-lived bearer token for gameplay calls
+  mint_url TEXT,                  -- normalized mint this session is locked to
   quote_id TEXT, invoice TEXT, quote_expires_at INTEGER,
   state TEXT NOT NULL,            -- created | awaiting_payment | paid | minted
   created_at INTEGER NOT NULL
@@ -100,7 +110,7 @@ CREATE TABLE bundles (
   session_id TEXT NOT NULL,
   milestone_id TEXT NOT NULL,     -- one of the 10 stable keys
   token TEXT,                     -- serialized cashuA payload (issued once)
-  state TEXT NOT NULL,            -- locked | unlocked | issued
+  state TEXT NOT NULL,            -- locked | unlocked | issued | combining | reclaimed | combined
   unlocked_at INTEGER, issued_at INTEGER,
   PRIMARY KEY (session_id, milestone_id)
 );
@@ -114,28 +124,35 @@ CREATE TABLE bundles (
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `POST` | `/api/session` | Create session → `{ sessionId, claimCode }` |
+| `POST` | `/api/session` | `{ mintUrl? }` → `{ sessionId, claimCode, mintUrl }` (defaults to Minibits) |
+| `GET` | `/api/mints` | Curated mint directory, each verified live → `{ defaultUrl, mints[] }` |
+| `GET` | `/api/mint?url=` | Verify one mint (NUT-06/NUT-02) → `{ url, online, name, feePpk, compatible }` |
 | `GET` | `/api/session/:id/deposit` | Mint quote for 100 sats → `{ invoice, quoteId, expiresAt }` |
 | `GET` | `/api/session/:id/deposit/status` | `{ state: awaiting_payment\|paid\|minted, bundlesReady }` |
 | `POST` | `/api/session/:id/unlock` | `{ milestoneId }` → `{ token }` (idempotent) |
+| `POST` | `/api/session/:id/combine` | `{ milestoneIds }` → one combined `{ token }` (recoverable) |
 | `GET` | `/api/session/:id/ledger` | Bundle states for the journal/token UI |
-| `POST` | `/api/session/claim` | `{ claimCode }` → `{ sessionId, ledger }` (recovery) |
+| `POST` | `/api/session/claim` | `{ claimCode }` → `{ sessionId, ledger, mintUrl }` (recovery) |
 
 All bodies zod-validated. `unlock` accepts a short-lived session token issued
 with the session (not the claim code) to keep gameplay calls lightweight.
 
 ## 6. Entry flow (NUT-04)
 
-1. Client `POST /api/session` → shows the **claim code ("Trainer ID")** + starts
-   the payment scene.
-2. Server requests a **bolt11 mint quote for 100 sats** on the Minibits mint and
+1. Client `POST /api/session` (optionally with the mint chosen in the directory)
+   → shows the **claim code ("Trainer ID")** + starts the payment scene. The
+   server verifies the mint and locks the session to it.
+2. Server requests a **bolt11 mint quote for 100 sats** on the session's mint and
    returns the invoice. Client renders a **BOLT11 QR** (raw invoice + copy
    button) with a countdown to `quote_expiresAt`.
 3. Client polls `deposit/status` every 2 s (or subscribes via NUT-17 websocket).
 4. When the quote is `PAID`, server **mints** 100 sats of proofs (64 + 32 + 4),
    then returns `paid`/`bundlesReady` **immediately** and **swaps (NUT-03)** the
-   proofs into 10 bundles of (8 + 2) each **in the background**, writing all
-   bundle rows (`state=locked`) when done.
+   proofs into 10 bundles **in the background**, writing all bundle rows
+   (`state=locked`) when done. Bundle size is `10 − perSendFee`: on a fee-free
+   mint that is ten `(8 + 2)` tokens (100 sats out); on a fee-bearing mint the
+   fee is shaved off each token (e.g. ten `(8 + 1)` tokens), so the player
+   redeems the entry amount net of fees.
 5. `bundlesReady: true` → game starts. A token claimed before the background
    swap finishes makes `/unlock` await the in-flight split (it is idempotent and
    serialized per session). The ten sequential swaps never gate the payment.
@@ -165,6 +182,26 @@ recovery).
 **In-world token bank:** the Minibits HQ receptionist lists unclaimed bundles and
 re-displays QRs on demand — redemption UI as game content.
 
+**Combine (receptionist):** `POST /api/session/:id/combine` folds the requested
+tokens into one. Because the sats backing each bundle are locked in its own
+in-flight send, combining must first *reclaim* those sends — which spends the
+individual tokens at the mint — and then re-send the total once. Reclaiming is
+irreversible, so the flow is written to be recoverable:
+
+1. Mark every target bundle `combining` (intent, persisted before anything is
+   spent).
+2. Reclaim each backing send (or fold in a bundle already reclaimed by a prior
+   attempt).
+3. Send the aggregate token, then mark the bundles `combined`.
+
+If step 3 fails (mint down / rate-limited) the bundles stay `combining`: the
+reclaimed sats are sitting in the server wallet as spendable balance, and the
+next combine — from any milestone, since `combining` bundles are always pulled
+into the target set — finishes issuing the combined token instead of reporting
+"no combinable tokens". `unlock` returns HTTP 409 while a bundle is `combining`.
+The operator sweep treats `combining` as dead and marks it `reclaimed`, so a
+later combine can never reissue sats the sweep already took.
+
 **QR format notes:**
 
 - Entry: raw `lnbc…` invoice QR (Lightning wallets accept it universally).
@@ -189,9 +226,12 @@ re-displays QRs on demand — redemption UI as game content.
 
 ## 9. Client architecture
 
-- **Scenes:** `Boot` (asset load) → `Title` (payment + claim-code entry) →
-  `Overworld` ↔ `Interior` (one scene class, data-driven maps) → `ClaimScreen`
-  (overlay) → `Ceremony` → `Ending`.
+- **Scenes:** `Boot` (asset load) → `Title` (payment, claim-code entry, and the
+  `MintScene` directory) → `Overworld` ↔ `Interior` (one scene class,
+  data-driven maps) → `ClaimScreen` (overlay) → `Ceremony` → `Ending`.
+- **Mint picker:** `MintScene` lists `GET /api/mints` (label, host, live status,
+  fee), verifies pasted URLs via `GET /api/mint?url=`, and stores the choice for
+  the next run in memory (`systems/mint.ts`) before the session is created.
 - **Movement system:** tile-locked stepping, 8 px/tile substeps for smoothness,
   collision from Tiled object layers, door warps as tile objects with target map +
   spawn coordinates.
@@ -253,17 +293,24 @@ npm test               # Vitest (server wallet tests run against MockWallet)
 `dev` uses the mock wallet so ordinary gameplay iteration costs nothing;
 `dev:real` exercises the real mint end-to-end (a full test costs 100 sats + routing).
 
+Env: `MINT_URL` sets the default mint (else Minibits). Players can pick a
+different mint per run from the directory; fee-bearing mints are allowed and the
+fee comes out of the player's payout.
+
 ### Operator withdrawal (unclaimed ecash)
 
 `server/src/admin/wallet-cli.ts` (`npm run wallet -w server -- <balance|withdraw>`)
-sweeps every unredeemed token back into the operator wallet and re-issues the whole
-balance as one token. It shares coco setup with the server via
-`server/src/wallet/coco.ts`; it refuses to run while the server is up (single-writer
-SQLite), backs up both databases first, and is idempotent. Matching is done in
+sweeps every unredeemed token back into the operator wallet and re-issues the
+balance as one token **per mint** (sessions may use different mints; each
+bundle is decoded against its own session's mint). It shares coco setup with the
+server via `server/src/wallet/coco.ts`; it refuses to run while the server is up
+(single-writer SQLite), backs up both databases first, and is idempotent. Matching is done in
 `server/src/admin/withdraw.ts` by comparing the in-flight send's proof secrets to each
 game bundle's decoded token, so already-redeemed tokens are skipped and a previous
 withdrawal token is picked up as an orphan send. Reclaimed bundles are marked
-`reclaimed`; the unlock endpoint returns HTTP 410 for them.
+`reclaimed`; the unlock endpoint returns HTTP 410 for them. Bundles left
+`combining` by an interrupted combine are marked `reclaimed` too (their sends are
+swept as orphans, and the sweep owns the wallet), so recovery cannot reissue them.
 
 Note: mock and real modes currently share `server/data/cashu-xx.db`, so mock rows live
 beside real ones (they are ignored, being undecodable for our mint). Giving mock its own

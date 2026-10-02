@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
   claim_code TEXT UNIQUE NOT NULL,
   auth_token TEXT NOT NULL,
+  mint_url TEXT,
   quote_id TEXT,
   mint_op_id TEXT,
   invoice TEXT,

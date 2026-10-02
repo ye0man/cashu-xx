@@ -7,6 +7,7 @@ import type {
   LedgerResponse,
   MilestoneId,
   MintInfoResponse,
+  MintListResponse,
   UnlockResponse,
 } from '@cashu-xx/shared';
 import { getGameSession } from './session';
@@ -74,7 +75,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 }
 
 export const api = {
-  createSession: () => request<CreateSessionResponse>('/api/session', { method: 'POST' }),
+  createSession: (mintUrl?: string) =>
+    request<CreateSessionResponse>('/api/session', { method: 'POST', body: mintUrl ? { mintUrl } : {} }),
   deposit: (sessionId: string) => request<DepositQuote>(`/api/session/${sessionId}/deposit`, { auth: true }),
   depositStatus: (sessionId: string) =>
     request<DepositStatus>(`/api/session/${sessionId}/deposit/status`, { auth: true }),
@@ -93,5 +95,7 @@ export const api = {
   ledger: (sessionId: string) => request<LedgerResponse>(`/api/session/${sessionId}/ledger`, { auth: true }),
   claim: (claimCode: string) =>
     request<ClaimResponse>('/api/session/claim', { method: 'POST', body: { claimCode } }),
-  mintInfo: () => request<MintInfoResponse>('/api/mint'),
+  mintInfo: (url?: string) =>
+    request<MintInfoResponse>(url ? `/api/mint?url=${encodeURIComponent(url)}` : '/api/mint'),
+  mints: () => request<MintListResponse>('/api/mints'),
 };

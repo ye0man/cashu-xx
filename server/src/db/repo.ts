@@ -7,6 +7,7 @@ export interface SessionRow {
   id: string;
   claim_code: string;
   auth_token: string;
+  mint_url: string | null;
   quote_id: string | null;
   mint_op_id: string | null;
   invoice: string | null;
@@ -47,13 +48,16 @@ export class Repo {
     if (!columns.some((column) => column.name === 'mint_op_id')) {
       this.db.exec('ALTER TABLE sessions ADD COLUMN mint_op_id TEXT');
     }
+    if (!columns.some((column) => column.name === 'mint_url')) {
+      this.db.exec('ALTER TABLE sessions ADD COLUMN mint_url TEXT');
+    }
   }
 
   createSession(row: SessionRow): void {
     this.db
       .prepare(
-        `INSERT INTO sessions (id, claim_code, auth_token, quote_id, mint_op_id, invoice, quote_expires_at, state, created_at)
-         VALUES (@id, @claim_code, @auth_token, @quote_id, @mint_op_id, @invoice, @quote_expires_at, @state, @created_at)`,
+        `INSERT INTO sessions (id, claim_code, auth_token, mint_url, quote_id, mint_op_id, invoice, quote_expires_at, state, created_at)
+         VALUES (@id, @claim_code, @auth_token, @mint_url, @quote_id, @mint_op_id, @invoice, @quote_expires_at, @state, @created_at)`,
       )
       .run(row);
   }
@@ -64,6 +68,18 @@ export class Repo {
 
   getSessionByClaimCode(claimCode: string): SessionRow | undefined {
     return this.db.prepare('SELECT * FROM sessions WHERE claim_code = ?').get(claimCode) as SessionRow | undefined;
+  }
+
+  listSessions(): SessionRow[] {
+    return this.db.prepare('SELECT * FROM sessions ORDER BY created_at').all() as SessionRow[];
+  }
+
+  /** Distinct mint URLs used by sessions (for the multi-mint operator sweep). */
+  listSessionMintUrls(): string[] {
+    const rows = this.db
+      .prepare('SELECT DISTINCT mint_url FROM sessions WHERE mint_url IS NOT NULL')
+      .all() as Array<{ mint_url: string }>;
+    return rows.map((row) => row.mint_url);
   }
 
   setQuote(id: string, quoteId: string, invoice: string, expiresAt: number): void {
@@ -126,12 +142,46 @@ export class Repo {
       .run(at, at, sessionId, milestoneId);
   }
 
-  listAllBundles(): BundleRow[] {
-    return this.db.prepare('SELECT * FROM bundles ORDER BY rowid').all() as BundleRow[];
+  /** Mark bundles as an in-progress combine before the (irreversible) send reclaim. */
+  markCombining(sessionId: string, milestoneIds: MilestoneId[]): void {
+    const stmt = this.db.prepare(`UPDATE bundles SET state = 'combining' WHERE session_id = ? AND milestone_id = ?`);
+    const tx = this.db.transaction((ids: MilestoneId[]) => {
+      for (const milestoneId of ids) {
+        stmt.run(sessionId, milestoneId);
+      }
+    });
+    tx(milestoneIds);
+  }
+
+  /** Restore a bundle to a specific state (used to undo a combine that claimed nothing). */
+  setBundleState(sessionId: string, milestoneId: MilestoneId, state: BundleState): void {
+    this.db
+      .prepare(`UPDATE bundles SET state = ? WHERE session_id = ? AND milestone_id = ?`)
+      .run(state, sessionId, milestoneId);
   }
 
   listBundles(sessionId: string): BundleRow[] {
     return this.db.prepare('SELECT * FROM bundles WHERE session_id = ? ORDER BY rowid').all(sessionId) as BundleRow[];
+  }
+
+  listAllBundles(): BundleRow[] {
+    return this.db.prepare('SELECT * FROM bundles ORDER BY rowid').all() as BundleRow[];
+  }
+
+  listCombiningBundles(sessionId: string): BundleRow[] {
+    return this.db
+      .prepare(`SELECT * FROM bundles WHERE session_id = ? AND state = 'combining' ORDER BY rowid`)
+      .all(sessionId) as BundleRow[];
+  }
+
+  /**
+   * A sweep by the operator takes over the wallet, so any combine left in
+   * progress is dead: its sats are either reclaimed into the sweep or already in
+   * the spendable balance being swept. Mark them so a later combine cannot
+   * reissue a combined token with no backing.
+   */
+  markAllCombiningReclaimed(): number {
+    return this.db.prepare(`UPDATE bundles SET state = 'reclaimed' WHERE state = 'combining'`).run().changes;
   }
 
   close(): void {

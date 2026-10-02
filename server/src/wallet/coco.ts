@@ -70,6 +70,13 @@ export async function openCocoManager(options: CocoOptions): Promise<{
     seedGetter: async () => seed,
     logger,
   });
-  await manager.mint.addMint(options.mintUrl, { trusted: true });
+  // Warm the default mint's keysets, but never let a transient outage wedge the
+  // whole manager: sessions may use a different mint, and the wallet re-adds the
+  // default lazily (ensureMint) if it was down here.
+  try {
+    await manager.mint.addMint(options.mintUrl, { trusted: true });
+  } catch (err) {
+    logger.warn(`could not load default mint ${options.mintUrl} at boot: ${(err as Error).message}`);
+  }
   return { manager, database, repositories: repos };
 }

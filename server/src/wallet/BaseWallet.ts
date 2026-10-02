@@ -1,12 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import {
-  MILESTONE_IDS,
+  DEFAULT_MINT_URL,
+  normalizeMintUrl,
   type ClaimResponse,
   type CombineResponse,
   type CreateSessionResponse,
   type DepositQuote,
   type DepositStatus,
   type LedgerRow,
+  MILESTONE_IDS,
   type MilestoneId,
   type UnlockResponse,
 } from '@cashu-xx/shared';
@@ -22,9 +24,19 @@ export function makeClaimCode(): string {
 }
 
 export abstract class BaseWallet implements WalletService {
-  constructor(protected readonly repo: Repo) {}
+  constructor(
+    protected readonly repo: Repo,
+    protected readonly defaultMintUrl: string = DEFAULT_MINT_URL,
+  ) {}
 
-  async createSession(): Promise<CreateSessionResponse> {
+  async createSession(mintUrl?: string): Promise<CreateSessionResponse> {
+    let resolved: string;
+    try {
+      resolved = normalizeMintUrl(mintUrl ?? this.defaultMintUrl);
+    } catch (err) {
+      throw new WalletError('invalid', (err as Error).message);
+    }
+    await this.validateMint(resolved);
     const sessionId = randomUUID();
     const claimCode = makeClaimCode();
     const authToken = randomUUID().replaceAll('-', '');
@@ -32,6 +44,7 @@ export abstract class BaseWallet implements WalletService {
       id: sessionId,
       claim_code: claimCode,
       auth_token: authToken,
+      mint_url: resolved,
       quote_id: null,
       mint_op_id: null,
       invoice: null,
@@ -39,15 +52,23 @@ export abstract class BaseWallet implements WalletService {
       state: 'created',
       created_at: Date.now(),
     });
-    return { sessionId, claimCode, authToken };
+    return { sessionId, claimCode, authToken, mintUrl: resolved };
   }
+
+  /** Hook for wallets that need to vet a mint before a session is locked to it. */
+  protected async validateMint(_mintUrl: string): Promise<void> {}
 
   async recoverSession(claimCode: string): Promise<ClaimResponse> {
     const row = this.repo.getSessionByClaimCode(claimCode);
     if (!row) {
       throw new WalletError('not_found', 'unknown claim code');
     }
-    return { sessionId: row.id, authToken: row.auth_token, ledger: this.ledgerRows(row.id) };
+    return {
+      sessionId: row.id,
+      authToken: row.auth_token,
+      ledger: this.ledgerRows(row.id),
+      mintUrl: row.mint_url ?? this.defaultMintUrl,
+    };
   }
 
   async authenticate(sessionId: string, authToken: string): Promise<boolean> {
@@ -66,6 +87,9 @@ export abstract class BaseWallet implements WalletService {
     }
     if (bundle.state === 'reclaimed') {
       throw new WalletError('reclaimed', 'the operator withdrew the sats for this token');
+    }
+    if (bundle.state === 'combining') {
+      throw new WalletError('not_ready', 'a combine is in progress for this token — retry at Minibits HQ');
     }
     if (bundle.state === 'combined') {
       throw new WalletError('combined', 'this token was combined into a single token at Minibits HQ');

@@ -1,6 +1,6 @@
 import cors from '@fastify/cors';
 import Fastify, { type FastifyInstance } from 'fastify';
-import type { MintInfoResponse } from '@cashu-xx/shared';
+import type { MintInfoResponse, MintListResponse } from '@cashu-xx/shared';
 import { registerCombineRoutes } from './routes/combine';
 import { registerDepositRoutes } from './routes/deposit';
 import { makeGuard } from './routes/helpers';
@@ -13,9 +13,20 @@ import type { WalletService } from './wallet/WalletService';
 export interface BuildAppOptions {
   wallet: WalletService;
   clientOrigin: string;
-  getMintInfo?: () => MintInfoResponse | Promise<MintInfoResponse>;
+  getMintInfo?: (url?: string) => MintInfoResponse | Promise<MintInfoResponse>;
+  getMints?: () => MintListResponse | Promise<MintListResponse>;
   logger?: boolean;
 }
+
+const NO_MINT: MintInfoResponse = {
+  url: '',
+  online: false,
+  name: '',
+  description: '',
+  feePpk: 0,
+  compatible: false,
+  error: 'mint info unavailable',
+};
 
 export async function buildApp(options: BuildAppOptions): Promise<FastifyInstance> {
   const app = Fastify({
@@ -46,7 +57,10 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   registerUnlockRoutes(app, options.wallet, guard);
   registerCombineRoutes(app, options.wallet, guard);
   registerLedgerRoutes(app, options.wallet, guard);
-  registerMintRoutes(app, () => options.getMintInfo?.() ?? { online: false, name: '', description: '', feePpk: 0, error: 'mint info unavailable' });
+  registerMintRoutes(app, {
+    getMintInfo: (url) => options.getMintInfo?.(url) ?? NO_MINT,
+    getMints: async () => options.getMints?.() ?? { defaultUrl: '', mints: [] },
+  });
 
   return app;
 }

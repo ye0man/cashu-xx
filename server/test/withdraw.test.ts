@@ -8,6 +8,7 @@ function bundle(overrides: Partial<BundleTokenInfo> = {}): BundleTokenInfo {
     sessionId: 'session-1',
     milestoneId: 'impl-rusty' as MilestoneId,
     state: 'locked',
+    mintUrl: 'https://mint.test',
     secrets: ['secret-a', 'secret-b'],
     sats: 10,
     ...overrides,
@@ -15,7 +16,14 @@ function bundle(overrides: Partial<BundleTokenInfo> = {}): BundleTokenInfo {
 }
 
 function send(overrides: Partial<SendOpInfo> = {}): SendOpInfo {
-  return { id: 'op-1', state: 'pending', amount: 10, secrets: ['secret-a', 'secret-b'], ...overrides };
+  return {
+    id: 'op-1',
+    state: 'pending',
+    amount: 10,
+    mintUrl: 'https://mint.test',
+    secrets: ['secret-a', 'secret-b'],
+    ...overrides,
+  };
 }
 
 describe('planWithdraw', () => {
@@ -77,6 +85,7 @@ describe('Repo.markReclaimed', () => {
       id: 's1',
       claim_code: 'NUT-AAAA-BBBB',
       auth_token: 'tok',
+      mint_url: null,
       quote_id: null,
       mint_op_id: null,
       invoice: null,

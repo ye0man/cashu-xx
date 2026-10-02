@@ -2,6 +2,8 @@ export interface GameSession {
   sessionId: string;
   authToken: string;
   claimCode: string;
+  /** Mint this run is locked to (normalized); absent on pre-upgrade saves. */
+  mintUrl?: string;
 }
 
 const SESSION_KEY = 'cashu-xx.session.v1';
@@ -20,6 +22,7 @@ function read(): GameSession | null {
       sessionId: parsed.sessionId,
       authToken: parsed.authToken,
       claimCode: typeof parsed.claimCode === 'string' ? parsed.claimCode : '',
+      mintUrl: typeof parsed.mintUrl === 'string' ? parsed.mintUrl : undefined,
     };
   } catch {
     return null;

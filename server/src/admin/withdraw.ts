@@ -1,4 +1,4 @@
-import type { BundleState, MilestoneId } from '@cashu-xx/shared';
+import { isDeadBundleState, type BundleState, type MilestoneId } from '@cashu-xx/shared';
 
 /**
  * Pure planning for the operator withdrawal: works out which in-flight wallet
@@ -11,6 +11,8 @@ export interface BundleTokenInfo {
   sessionId: string;
   milestoneId: MilestoneId;
   state: BundleState;
+  /** Mint the session (and therefore this token) is locked to. */
+  mintUrl: string;
   /** Decoded proof secrets, or null when the token could not be decoded (e.g. a mock token). */
   secrets: string[] | null;
   sats: number;
@@ -20,6 +22,8 @@ export interface SendOpInfo {
   id: string;
   state: string;
   amount: number;
+  /** Mint this send belongs to. */
+  mintUrl: string;
   /** Proof secrets of the token handed out by this send (empty if the op has no token). */
   secrets: string[];
 }
@@ -50,9 +54,11 @@ export interface WithdrawPlan {
 
 export function planWithdraw(bundles: BundleTokenInfo[], sends: SendOpInfo[]): WithdrawPlan {
   // A combined bundle's sats were re-sent as one token, so like reclaimed it is
-  // dead to the operator sweep.
+  // dead to the operator sweep. An in-progress combine (`combining`) is also dead
+  // here: the sweep is taking over the wallet, so its sends are reclaimed into
+  // the withdrawal and a later combine must not reissue them.
   const dead = (bundle: BundleTokenInfo): boolean =>
-    bundle.state === 'reclaimed' || bundle.state === 'combined';
+    isDeadBundleState(bundle.state) || bundle.state === 'combining';
   const bySecret = new Map<string, BundleTokenInfo>();
   for (const bundle of bundles) {
     if (dead(bundle) || !bundle.secrets) {
@@ -98,9 +104,7 @@ export function planWithdraw(bundles: BundleTokenInfo[], sends: SendOpInfo[]): W
     totals: {
       matchedSats: matched.reduce((sum, m) => sum + m.op.amount, 0),
       orphanSats: orphanSends.reduce((sum, op) => sum + op.amount, 0),
-      alreadyReclaimedSats: bundles
-        .filter((b) => b.state === 'reclaimed' || b.state === 'combined')
-        .reduce((sum, b) => sum + b.sats, 0),
+      alreadyReclaimedSats: bundles.filter(dead).reduce((sum, b) => sum + b.sats, 0),
       undecodableBundles: undecodable.length,
       redeemedBundles: redeemed,
       lockedBundles: real.filter((b) => b.state === 'locked').length,

@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { DEFAULT_MINT_URL } from '@cashu-xx/shared';
 
 export type WalletName = 'mock' | 'minibits';
 
@@ -16,7 +17,7 @@ export interface ServerConfig {
 const packageDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultDataDir = path.join(packageDir, '..', 'data');
 
-export const DEFAULT_MINT_URL = 'https://mint.minibits.cash/Bitcoin';
+export { DEFAULT_MINT_URL };
 
 export function loadConfig(argv: string[] = process.argv.slice(2)): ServerConfig {
   const { values } = parseArgs({

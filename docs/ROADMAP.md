@@ -46,6 +46,7 @@ Phased build plan. Scope: ~30-minute game, one city district, 7 named NPCs,
 - [x] Unlock → `cashuA` claim screen (QR + copy + save-for-later)
 - [x] Claim-code recovery flow + receptionist token bank
 - [x] Boot-time mint verification (`input_fee_ppk`, endpoints) with soft-fail UX
+- [x] Mint directory: curated + manual URL selection, per-session mint, live NUT-06/NUT-02 checks
 
 **Exit:** pay 100 sats → play → claim 100 sats back, all real, on localhost.
 
@@ -75,8 +76,9 @@ Phased build plan. Scope: ~30-minute game, one city district, 7 named NPCs,
 Local development/deployment only for v1 (`npm run dev:real`). When moving to the
 owner's own website: the client is a static bundle (any web host) and the wallet
 API is a small Node app with SQLite (needs Node ≥22). Keep `MINT_URL` pointed at
-the Minibits mint (or a successor) and move `server/data/` (wallet seed + ledger)
-alongside the deployed server — it holds player claim codes.
+Minibits (or a successor) as the default — players can still switch mints per run
+from the directory — and move `server/data/` (wallet seed + ledger) alongside the
+deployed server, since it holds player claim codes and covers every mint used.
 
 ---
 

@@ -126,4 +126,25 @@ describe('MockWallet', () => {
       code: 'not_ready',
     });
   });
+
+  it('recovers bundles stranded in the combining state', async () => {
+    const repo = new Repo(':memory:');
+    const owned = new MockWallet(repo);
+    const session = await owned.createSession();
+    await owned.getDepositQuote(session.sessionId);
+    await owned.getDepositStatus(session.sessionId);
+
+    // Simulate a combine that reclaimed this token but crashed before issuing.
+    repo.setBundleState(session.sessionId, 'impl-rusty', 'combining');
+    await expect(owned.unlockToken(session.sessionId, 'impl-rusty')).rejects.toMatchObject({
+      code: 'not_ready',
+    });
+
+    // Retrying for a *different* milestone still sweeps the stranded one in.
+    const result = await owned.combineTokens(session.sessionId, ['kimi-test']);
+    expect(result.combinedCount).toBe(2);
+    const ledger = await owned.getLedger(session.sessionId);
+    expect(ledger.find((row) => row.milestoneId === 'impl-rusty')?.state).toBe('combined');
+    expect(ledger.find((row) => row.milestoneId === 'kimi-test')?.state).toBe('combined');
+  });
 });

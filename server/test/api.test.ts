@@ -100,8 +100,7 @@ describe('API', () => {
     expect(unlock.json().code).toBe('reclaimed');
   });
 
-  it('combines unlocked tokens into one and reports the spent bundles', async () => {
-    const created = await app.inject({ method: 'POST', url: '/api/session' });
+  it('combines unlocked tokens into one and reports the spent bundles', async () => {    const created = await app.inject({ method: 'POST', url: '/api/session' });
     const fresh: CreateSessionResponse = created.json();
     const headers = { authorization: `Bearer ${fresh.authToken}` };
     await app.inject({ method: 'GET', url: `/api/session/${fresh.sessionId}/deposit`, headers });
@@ -136,5 +135,89 @@ describe('API', () => {
       payload: { milestoneIds: [] },
     });
     expect(empty.statusCode).toBe(400);
+  });
+});
+
+describe('mint selection & discovery', () => {
+  let app: FastifyInstance;
+  let requestedMintUrls: string[];
+
+  beforeAll(async () => {
+    requestedMintUrls = [];
+    app = await buildApp({
+      wallet: new MockWallet(new Repo(':memory:')),
+      clientOrigin: 'http://localhost:5173',
+      getMintInfo: (url) => {
+        if (url) {
+          requestedMintUrls.push(url);
+        }
+        return {
+          url: url ?? 'https://mint.minibits.cash/Bitcoin',
+          online: true,
+          name: 'Test mint',
+          description: '',
+          feePpk: 0,
+          compatible: true,
+        };
+      },
+      getMints: () => ({
+        defaultUrl: 'https://mint.minibits.cash/Bitcoin',
+        mints: [
+          {
+            url: 'https://mint.minibits.cash/Bitcoin',
+            label: 'Minibits',
+            online: true,
+            name: 'Test mint',
+            description: '',
+            feePpk: 0,
+            compatible: true,
+          },
+        ],
+      }),
+      logger: false,
+    });
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('locks a session to the chosen mint and returns it normalized', async () => {
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/session',
+      payload: { mintUrl: 'https://Mint.Example/' },
+    });
+    expect(created.statusCode).toBe(201);
+    const body: CreateSessionResponse = created.json();
+    expect(body.mintUrl).toBe('https://mint.example');
+
+    const recovered = await app.inject({
+      method: 'POST',
+      url: '/api/session/claim',
+      payload: { claimCode: body.claimCode },
+    });
+    expect(recovered.json().mintUrl).toBe('https://mint.example');
+  });
+
+  it('rejects a malformed mint URL', async () => {
+    const bad = await app.inject({ method: 'POST', url: '/api/session', payload: { mintUrl: 'not a url' } });
+    expect(bad.statusCode).toBe(400);
+  });
+
+  it('returns the curated discovery list', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/mints' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().mints[0].label).toBe('Minibits');
+  });
+
+  it('verifies a specific mint URL and rejects a malformed one', async () => {
+    const ok = await app.inject({ method: 'GET', url: '/api/mint?url=https%3A%2F%2FMint.Example%2F' });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json().url).toBe('https://mint.example');
+    expect(requestedMintUrls).toContain('https://mint.example');
+
+    const bad = await app.inject({ method: 'GET', url: '/api/mint?url=nope' });
+    expect(bad.statusCode).toBe(400);
   });
 });

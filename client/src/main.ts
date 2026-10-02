@@ -2,6 +2,7 @@ import * as Phaser from 'phaser';
 import { GAME_CONFIG } from './data/config';
 import { BootScene } from './scenes/BootScene';
 import { EndingScene } from './scenes/EndingScene';
+import { MintScene } from './scenes/MintScene';
 import { PayScene } from './scenes/PayScene';
 import { TitleScene } from './scenes/TitleScene';
 import { WorldScene } from './scenes/WorldScene';
@@ -26,7 +27,7 @@ const config: Phaser.Types.Core.GameConfig = {
     zoom: integerZoom(),
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  scene: [BootScene, TitleScene, PayScene, WorldScene, EndingScene],
+  scene: [BootScene, TitleScene, MintScene, PayScene, WorldScene, EndingScene],
 };
 
 const game = new Phaser.Game(config);

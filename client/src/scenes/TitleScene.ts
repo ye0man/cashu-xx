@@ -1,10 +1,19 @@
 import * as Phaser from 'phaser';
 import { api } from '../systems/api';
+import { selectedMintLabel, selectedMintUrl, setSelectedMint } from '../systems/mint';
 import { hasSave, loadSave } from '../systems/save';
 import { setGameSession } from '../systems/session';
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function host(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
 }
 
 export class TitleScene extends Phaser.Scene {
@@ -47,7 +56,7 @@ export class TitleScene extends Phaser.Scene {
       .setOrigin(0.5);
     this.tweens.add({ targets: hint, alpha: 0.35, duration: 700, yoyo: true, repeat: -1 });
 
-    let nextY = 256;
+    let nextY = 246;
     if (hasSave()) {
       this.add
         .text(240, nextY, 'PRESS C TO CONTINUE', {
@@ -65,6 +74,22 @@ export class TitleScene extends Phaser.Scene {
         color: '#8a8298',
       })
       .setOrigin(0.5);
+    nextY += 18;
+    this.add
+      .text(240, nextY, 'PRESS M TO SELECT MINT', {
+        fontFamily: 'Courier New',
+        fontSize: '12px',
+        color: '#8a8298',
+      })
+      .setOrigin(0.5);
+    nextY += 18;
+    this.add
+      .text(240, nextY, `MINT: ${selectedMintLabel()}`, {
+        fontFamily: 'Courier New',
+        fontSize: '10px',
+        color: '#9d5fe0',
+      })
+      .setOrigin(0.5);
 
     const keyboard = this.input.keyboard;
     if (keyboard) {
@@ -76,6 +101,9 @@ export class TitleScene extends Phaser.Scene {
       });
       keyboard.on('keydown-R', () => {
         void this.recoverGame();
+      });
+      keyboard.on('keydown-M', () => {
+        this.scene.start('MintScene');
       });
     }
   }
@@ -104,7 +132,9 @@ export class TitleScene extends Phaser.Scene {
         sessionId: recovered.sessionId,
         authToken: recovered.authToken,
         claimCode: code.trim().toUpperCase(),
+        mintUrl: recovered.mintUrl,
       });
+      setSelectedMint({ url: recovered.mintUrl, label: host(recovered.mintUrl) });
       const save = loadSave();
       this.scene.start('WorldScene', save ? {
         mapId: save.mapId,
@@ -123,7 +153,7 @@ export class TitleScene extends Phaser.Scene {
     }
     this.started = true;
     try {
-      const session = await api.createSession();
+      const session = await api.createSession(selectedMintUrl());
       setGameSession(session);
       await delay(150);
       this.scene.start('PayScene');

@@ -120,10 +120,10 @@ export class PayScene extends Phaser.Scene {
   private async checkMint(): Promise<void> {
     this.mintText.setText('connecting to mint...');
     try {
-      const info: MintInfoResponse = await api.mintInfo();
+      const info: MintInfoResponse = await api.mintInfo(getGameSession()?.mintUrl);
       this.mintText.setText(
         info.online
-          ? `${info.name} · BETA · fee ${info.feePpk} ppk`
+          ? `${info.name} · fee ${info.feePpk} ppk`
           : `mint offline (${info.error ?? 'unknown'}) — R retry`,
       );
     } catch (err) {

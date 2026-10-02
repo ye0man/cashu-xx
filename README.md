@@ -29,8 +29,10 @@ milestones and found hidden around the city. Scan them with any cashu wallet.
 
 ## Status
 
-v1 complete (P0–P5) — real Minibits mint integration: pay 100 sats, play, claim
-100 sats back. See [`docs/ROADMAP.md`](docs/ROADMAP.md).
+v1 complete (P0–P5) — real Cashu mint integration: pay 100 sats, play, claim
+100 sats back. The wallet defaults to the [Minibits mint](https://minibits.cash)
+and can be pointed at another mint from an in-game **mint directory** (NUT-06).
+See [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Docs
 
@@ -42,15 +44,20 @@ v1 complete (P0–P5) — real Minibits mint integration: pay 100 sats, play, cl
 
 ## The loop
 
-1. **Pay** — scan a 100-sat Lightning invoice (any LN wallet works). Your
+1. **Pick a mint (optional)** — from the title screen, `M` opens the mint
+   directory: a curated list of public mints, each checked live for NUT-06 info
+   and input fees, plus any mint URL you paste in. The default is Minibits.
+2. **Pay** — scan a 100-sat Lightning invoice (any LN wallet works). Your
    **Trainer ID** (claim code) appears on the payment screen — save it.
-2. **Play** — ~30 min of quests modeled on the NUT contribution process.
-3. **Claim** — 10 tokens × 10 sats, each a `cashuA` QR any cashu wallet can take
+3. **Play** — ~30 min of quests modeled on the NUT contribution process.
+4. **Claim** — 10 tokens × 10 sats, each a `cashuA` QR any cashu wallet can take
    (the receptionist at Minibits HQ re-displays any of them). The game never
    takes a cut.
 
-Ecash on the [Minibits mint](https://minibits.cash) (best-effort beta mint —
-small amounts only).
+Ecash defaults to the [Minibits mint](https://minibits.cash) (best-effort beta
+mint — small amounts only). Mints that charge an input fee are allowed: the fee
+is taken out of the sats you can redeem, so a fee-bearing mint pays out ten
+tokens slightly under 10 sats each rather than failing.
 
 ## Stack
 
@@ -69,7 +76,8 @@ npm test           # vitest (wallet + API + world data)
 ```
 
 With `dev:real`: pay the 100-sat invoice with any Lightning wallet, play, and
-claim 10 × 10-sat cashu tokens with any cashu wallet.
+claim 10 × 10-sat cashu tokens with any cashu wallet. `MINT_URL` sets the
+default mint (players can switch per run from the directory).
 
 Controls: arrows/WASD move · Z talk/read · X menu · N night · text speed and
 sound in the menu's SETTINGS page.

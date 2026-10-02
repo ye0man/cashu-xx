@@ -8,18 +8,45 @@ import { MinibitsWallet } from '../src/wallet/MinibitsWallet';
 const state = vi.hoisted(() => ({
   finalized: true,
   executeDelayMs: 0,
+  failExecutes: 0,
   sends: [] as string[],
+  sentAmounts: [] as number[],
   deletedMintOps: [] as string[],
   inFlight: [] as Array<{ id: string; state: string; token: { proofs: Array<{ secret: string }> } }>,
   reclaimed: [] as string[],
+  addedMints: [] as string[],
+  mintOnline: true,
+  mintFeePpk: 0,
 }));
 
 // A current unix-seconds expiry, mirroring a real bolt11 mint quote (1h out).
 const quoteExpiry = () => Math.floor(Date.now() / 1000) + 3600;
 
+vi.mock('../src/wallet/mintVerify', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/wallet/mintVerify')>();
+  return {
+    ...actual,
+    verifyMint: async (mintUrl: string) => ({
+      url: mintUrl,
+      online: state.mintOnline,
+      name: 'Test mint',
+      description: '',
+      feePpk: state.mintFeePpk,
+      compatible: state.mintOnline && state.mintFeePpk === 0,
+      error: state.mintOnline ? undefined : 'unreachable',
+    }),
+  };
+});
+
 vi.mock('../src/wallet/coco', () => ({
   openCocoManager: async () => ({
     manager: {
+      mint: {
+        addMint: async (mintUrl: string) => {
+          state.addedMints.push(mintUrl);
+          return { mintUrl, keysets: [] };
+        },
+      },
       quotes: {
         mint: {
           create: async () => ({ quoteId: `quote-${Date.now()}`, request: 'lnbc1test', expiry: quoteExpiry() }),
@@ -33,12 +60,22 @@ vi.mock('../src/wallet/coco', () => ({
           finalize: async () => {},
         },
         send: {
-          prepare: async (request: { amount?: number } = {}) => ({ id: `op-${state.sends.length}`, amount: request.amount }),
+          prepare: async (request: { amount?: number } = {}) => ({
+            id: `op-${state.sends.length}`,
+            amount: request.amount,
+            // A fee-bearing mint charges 1 sat per swap in these tests.
+            fee: state.mintFeePpk > 0 ? 1 : 0,
+          }),
           execute: async (op: { id: string; amount?: number }) => {
+            if (state.failExecutes > 0) {
+              state.failExecutes -= 1;
+              throw new Error('mint rate limited');
+            }
             if (state.executeDelayMs > 0) {
               await new Promise((resolve) => setTimeout(resolve, state.executeDelayMs));
             }
             state.sends.push(op.id);
+            state.sentAmounts.push(op.amount ?? 0);
             state.inFlight.push({
               id: op.id,
               state: 'pending',
@@ -54,6 +91,7 @@ vi.mock('../src/wallet/coco', () => ({
             };
           },
           listInFlight: async () => state.inFlight.map((op) => ({ ...op })),
+          get: async (id: string) => ({ id, state: 'prepared', amount: 0 }),
           reclaim: async (id: string) => {
             state.reclaimed.push(id);
             state.inFlight = state.inFlight.filter((op) => op.id !== id);
@@ -113,10 +151,60 @@ describe('MinibitsWallet background split', () => {
   beforeEach(() => {
     state.finalized = true;
     state.executeDelayMs = 0;
+    state.failExecutes = 0;
     state.sends = [];
+    state.sentAmounts = [];
     state.deletedMintOps = [];
     state.inFlight = [];
     state.reclaimed = [];
+    state.addedMints = [];
+    state.mintOnline = true;
+    state.mintFeePpk = 0;
+  });
+
+  it('locks a new session to the requested mint and loads its keysets', async () => {
+    const { repo, wallet } = makeWallet();
+    const session = await wallet.createSession('https://other-mint.test');
+    expect(session.mintUrl).toBe('https://other-mint.test');
+    expect(repo.getSession(session.sessionId)?.mint_url).toBe('https://other-mint.test');
+
+    await wallet.getDepositQuote(session.sessionId);
+    expect(state.addedMints).toContain('https://other-mint.test');
+  });
+
+  it('accepts a mint that charges input fees', async () => {
+    const { wallet } = makeWallet();
+    state.mintFeePpk = 100;
+    const session = await wallet.createSession('https://fee-mint.test');
+    expect(session.mintUrl).toBe('https://fee-mint.test');
+  });
+
+  it('shaves the per-send fee off each bundle so the payout nets the fee', async () => {
+    const { repo, wallet } = makeWallet();
+    state.mintFeePpk = 100;
+    const session = await wallet.createSession('https://fee-mint.test');
+    repo.setQuote(session.sessionId, 'quote-1', 'lnbc1test', Date.now() + 60_000);
+    repo.setMintOp(session.sessionId, 'mint-op-1');
+    repo.setState(session.sessionId, 'awaiting_payment');
+
+    await wallet.getDepositStatus(session.sessionId);
+    await waitFor(() => repo.hasBundles(session.sessionId));
+
+    // 100 sats, 1 sat fee per 10-sat send -> ten 9-sat tokens (100 sats spent).
+    expect(repo.listBundles(session.sessionId)).toHaveLength(10);
+    expect(state.sentAmounts).toHaveLength(10);
+    expect(state.sentAmounts.every((amount) => amount === 9)).toBe(true);
+  });
+
+  it('rejects an offline mint', async () => {
+    const { wallet } = makeWallet();
+    state.mintOnline = false;
+    await expect(wallet.createSession('https://down-mint.test')).rejects.toMatchObject({ code: 'invalid' });
+  });
+
+  it('rejects a malformed mint URL before hitting the network', async () => {
+    const { wallet } = makeWallet();
+    await expect(wallet.createSession('not a url')).rejects.toMatchObject({ code: 'invalid' });
   });
 
   it('boots the manager on warmup', async () => {
@@ -240,5 +328,72 @@ describe('MinibitsWallet background split', () => {
       code: 'not_ready',
     });
     expect(repo.getBundle(session.sessionId, 'impl-rusty')?.state).toBe('locked');
+  });
+
+  it('keeps reclaimed tokens recoverable when the combined send fails, then finishes on retry', async () => {
+    const { repo, wallet } = makeWallet();
+    const session = await finalizedSession(repo, wallet);
+    await wallet.getDepositStatus(session.sessionId);
+    await waitFor(() => repo.hasBundles(session.sessionId));
+
+    // Every attempt to send the combined token fails: the old sends are still
+    // reclaimed, but the bundles must be left recoverable (`combining`).
+    state.failExecutes = 20;
+    await expect(wallet.combineTokens(session.sessionId, ['impl-rusty', 'kimi-test'])).rejects.toMatchObject({
+      code: 'not_ready',
+    });
+    expect(repo.getBundle(session.sessionId, 'impl-rusty')?.state).toBe('combining');
+    expect(repo.getBundle(session.sessionId, 'kimi-test')?.state).toBe('combining');
+    expect(state.reclaimed).toEqual(['op-0', 'op-4']);
+    expect(state.sends).toHaveLength(10);
+
+    // Retry: no in-flight sends remain for them, but they are recovered from the
+    // `combining` marker instead of erroring "no combinable tokens".
+    state.failExecutes = 0;
+    const result = await wallet.combineTokens(session.sessionId, ['impl-rusty', 'kimi-test']);
+    expect(result.combinedCount).toBe(2);
+    expect(result.amountSats).toBe(20);
+    expect(result.skippedRedeemed).toBe(0);
+    expect(result.token.startsWith('cashuA')).toBe(true);
+    expect(repo.getBundle(session.sessionId, 'impl-rusty')?.state).toBe('combined');
+    expect(repo.getBundle(session.sessionId, 'kimi-test')?.state).toBe('combined');
+  });
+
+  it('recovers a stranded combine even when the retry asks for a different milestone', async () => {
+    const { repo, wallet } = makeWallet();
+    const session = await finalizedSession(repo, wallet);
+    await wallet.getDepositStatus(session.sessionId);
+    await waitFor(() => repo.hasBundles(session.sessionId));
+
+    state.failExecutes = 10;
+    await expect(wallet.combineTokens(session.sessionId, ['impl-rusty'])).rejects.toMatchObject({
+      code: 'not_ready',
+    });
+    expect(repo.getBundle(session.sessionId, 'impl-rusty')?.state).toBe('combining');
+
+    state.failExecutes = 0;
+    // Asking for a *different* milestone still sweeps the stranded one in.
+    const result = await wallet.combineTokens(session.sessionId, ['ceremony']);
+    expect(result.combinedCount).toBe(2);
+    expect(result.token.startsWith('cashuA')).toBe(true);
+    expect(repo.getBundle(session.sessionId, 'impl-rusty')?.state).toBe('combined');
+    expect(repo.getBundle(session.sessionId, 'ceremony')?.state).toBe('combined');
+  });
+
+  it('shares a single in-flight combine between concurrent callers', async () => {
+    const { repo, wallet } = makeWallet();
+    const session = await finalizedSession(repo, wallet);
+    await wallet.getDepositStatus(session.sessionId);
+    await waitFor(() => repo.hasBundles(session.sessionId));
+
+    state.executeDelayMs = 25;
+    const [first, second] = await Promise.all([
+      wallet.combineTokens(session.sessionId, ['impl-rusty']),
+      wallet.combineTokens(session.sessionId, ['impl-rusty']),
+    ]);
+    expect(first).toBe(second);
+    // Only one reclaim and one combined send, even though combine was called twice.
+    expect(state.reclaimed).toEqual(['op-0']);
+    expect(state.sends).toHaveLength(11);
   });
 });

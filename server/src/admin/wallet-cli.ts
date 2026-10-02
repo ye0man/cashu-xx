@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Manager } from '@cashu/coco-core';
 import QRCode from 'qrcode';
+import { normalizeMintUrl } from '@cashu-xx/shared';
 import { DEFAULT_MINT_URL } from '../config';
 import { Repo } from '../db/repo';
 import { openCocoManager } from '../wallet/coco';
@@ -44,6 +45,10 @@ function stamp(): string {
   return new Date().toISOString().replace(/[:.]/g, '-');
 }
 
+function slug(mintUrl: string): string {
+  return mintUrl.replace(/^https?:\/\//, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 48);
+}
+
 async function isGameServerUp(port: number): Promise<boolean> {
   try {
     const res = await fetch(`http://127.0.0.1:${port}/api/mint`, { signal: AbortSignal.timeout(800) });
@@ -65,18 +70,24 @@ function backup(dataDir: string): string {
   return dir;
 }
 
-async function loadBundles(repo: Repo, manager: Manager, mintUrl: string): Promise<BundleTokenInfo[]> {
+async function loadBundles(
+  repo: Repo,
+  manager: Manager,
+  sessions: Map<string, string>,
+  fallbackMintUrl: string,
+): Promise<BundleTokenInfo[]> {
   const out: BundleTokenInfo[] = [];
   for (const row of repo.listAllBundles()) {
-    const base = { sessionId: row.session_id, milestoneId: row.milestone_id, state: row.state };
+    const mintUrl = sessions.get(row.session_id) ?? fallbackMintUrl;
+    const base = { sessionId: row.session_id, milestoneId: row.milestone_id, state: row.state, mintUrl };
     if (!row.token) {
       out.push({ ...base, secrets: null, sats: 0 });
       continue;
     }
     try {
       const decoded = await manager.wallet.decodeToken(row.token, mintUrl);
-      // Only tokens for *our* mint are real; mock/foreign tokens decode to something else.
-      if (decoded.mint !== mintUrl) {
+      // Only tokens for *this bundle's* mint are real; mock/foreign tokens decode to something else.
+      if (normalizeMintUrl(decoded.mint) !== normalizeMintUrl(mintUrl)) {
         out.push({ ...base, secrets: null, sats: 0 });
         continue;
       }
@@ -104,20 +115,37 @@ async function loadSends(manager: Manager): Promise<SendOpInfo[]> {
       id: op.id,
       state: op.state,
       amount: Number(op.amount),
+      mintUrl: op.mintUrl,
       secrets: token.proofs.map((proof) => proof.secret),
     });
   }
   return out;
 }
 
-async function reportBalance(repo: Repo, manager: Manager, options: Options): Promise<void> {
-  const balances = await manager.wallet.balances.total();
-  console.log(`\nServer wallet (${options.mintUrl})`);
-  console.log(`  spendable : ${Number(balances.spendable)} sats`);
-  console.log(`  reserved  : ${Number(balances.reserved)} sats (in-flight sends)`);
-  console.log(`  total     : ${Number(balances.total)} sats\n`);
+/** sessionId -> mint URL, falling back to the default for pre-upgrade rows. */
+function sessionMints(repo: Repo, fallbackMintUrl: string): Map<string, string> {
+  return new Map(repo.listSessions().map((row) => [row.id, row.mint_url ?? fallbackMintUrl]));
+}
 
-  const bundles = await loadBundles(repo, manager, options.mintUrl);
+async function reportBalance(repo: Repo, manager: Manager, options: Options): Promise<void> {
+  const balances = await manager.wallet.balances.byMint();
+  console.log('\nServer wallet balances');
+  let any = false;
+  for (const [mintUrl, snapshot] of Object.entries(balances)) {
+    if (Number(snapshot.total) === 0) {
+      continue;
+    }
+    any = true;
+    console.log(`  ${mintUrl}`);
+    console.log(`    spendable : ${Number(snapshot.spendable)} sats`);
+    console.log(`    reserved  : ${Number(snapshot.reserved)} sats (in-flight sends)`);
+  }
+  if (!any) {
+    console.log('  (empty)');
+  }
+  console.log('');
+
+  const bundles = await loadBundles(repo, manager, sessionMints(repo, options.mintUrl), options.mintUrl);
   const sends = await loadSends(manager);
   const plan = planWithdraw(bundles, sends);
 
@@ -222,7 +250,7 @@ async function sendAll(
 }
 
 async function withdraw(repo: Repo, manager: Manager, options: Options): Promise<void> {
-  const bundles = await loadBundles(repo, manager, options.mintUrl);
+  const bundles = await loadBundles(repo, manager, sessionMints(repo, options.mintUrl), options.mintUrl);
   const plan = planWithdraw(bundles, await loadSends(manager));
 
   console.log('\nWithdrawal plan');
@@ -230,9 +258,15 @@ async function withdraw(repo: Repo, manager: Manager, options: Options): Promise
     console.log(`  ${line}`);
   }
 
-  const balances = await manager.wallet.balances.total();
-  console.log(`  Loose spendable balance            : ${Number(balances.spendable)} sats`);
-  console.log(`  Estimated token total              : ${Number(balances.spendable) + plan.totals.matchedSats + plan.totals.orphanSats} sats\n`);
+  const balances = await manager.wallet.balances.byMint();
+  const spendableByMint = Object.fromEntries(
+    Object.entries(balances)
+      .map(([mintUrl, snapshot]) => [mintUrl, Number(snapshot.spendable)] as const)
+      .filter(([, spendable]) => spendable > 0),
+  );
+  const looseTotal = Object.values(spendableByMint).reduce((sum, amount) => sum + amount, 0);
+  console.log(`  Loose spendable balance            : ${looseTotal} sats`);
+  console.log(`  Estimated token total              : ${looseTotal + plan.totals.matchedSats + plan.totals.orphanSats} sats\n`);
 
   if (!options.yes) {
     console.log('Dry run. Re-run with --yes to execute (the game server must be stopped).\n');
@@ -247,37 +281,49 @@ async function withdraw(repo: Repo, manager: Manager, options: Options): Promise
   for (const bundle of outcome.reclaimed) {
     repo.markReclaimed(bundle.sessionId, bundle.milestoneId);
   }
+  // Any combine left in progress is now unrecoverable — the sweep owns those
+  // sats. Mark it so a later combine cannot reissue a token with no backing.
+  const staleCombines = repo.markAllCombiningReclaimed();
+  if (staleCombines > 0) {
+    console.log(`Marked ${staleCombines} in-progress combine bundle(s) as reclaimed.`);
+  }
   console.log(`Reclaimed ${outcome.gained} sats from ${plan.matched.length + plan.orphanSends.length} send(s).`);
   for (const failure of outcome.failures) {
     console.log(`  ! ${failure}`);
   }
 
-  const after = await manager.wallet.balances.total();
-  const spendable = Number(after.spendable);
-  if (spendable <= 0) {
+  // Reclaimed and loose sats may now sit across several mints; issue one token
+  // per mint so every balance can be swept with a wallet that accepts it.
+  const after = await manager.wallet.balances.byMint();
+  const remaining = Object.entries(after)
+    .map(([mintUrl, snapshot]) => ({ mintUrl, spendable: Number(snapshot.spendable) }))
+    .filter((entry) => entry.spendable > 0);
+  if (remaining.length === 0) {
     console.log('\nNothing spendable to withdraw. (Everything may already be redeemed.)');
     return;
   }
 
-  const { token, amount } = await sendAll(manager, options.mintUrl, spendable);
   const withdrawalsDir = path.join(options.dataDir, 'withdrawals');
   mkdirSync(withdrawalsDir, { recursive: true });
-  const file = path.join(withdrawalsDir, `${stamp()}.txt`);
-  writeFileSync(
-    file,
-    `Cashu-XX operator withdrawal\nmint: ${options.mintUrl}\namount: ${amount} sat\ncreated: ${new Date().toISOString()}\n\n${token}\n`,
-  );
+  for (const { mintUrl, spendable } of remaining) {
+    const { token, amount } = await sendAll(manager, mintUrl, spendable);
+    const file = path.join(withdrawalsDir, `${stamp()}-${slug(mintUrl)}.txt`);
+    writeFileSync(
+      file,
+      `Cashu-XX operator withdrawal\nmint: ${mintUrl}\namount: ${amount} sat\ncreated: ${new Date().toISOString()}\n\n${token}\n`,
+    );
 
-  console.log(`\nWithdrew ${amount} sats as a single token. Save it in any cashu wallet.`);
-  console.log(`Written to ${file}\n`);
-  console.log(token);
-  console.log('');
-  try {
-    console.log(await QRCode.toString(token, { type: 'terminal', small: true }));
-  } catch {
-    console.log('(token too large for a terminal QR — paste the text above or open the file)\n');
+    console.log(`\nWithdrew ${amount} sats from ${mintUrl} as a single token. Save it in any cashu wallet.`);
+    console.log(`Written to ${file}\n`);
+    console.log(token);
+    console.log('');
+    try {
+      console.log(await QRCode.toString(token, { type: 'terminal', small: true }));
+    } catch {
+      console.log('(token too large for a terminal QR — paste the text above or open the file)\n');
+    }
   }
-  console.log('If you lose this token before redeeming it, just run withdraw again.\n');
+  console.log('If you lose a token before redeeming it, just run withdraw again.\n');
 }
 
 async function main(): Promise<void> {
@@ -307,6 +353,16 @@ async function main(): Promise<void> {
     logLevel: options.debug ? 'info' : 'error',
   });
   process.stderr.write(`Wallet opened in ${Date.now() - startedAt}ms\n`);
+
+  // Fetch keysets for every mint sessions have used, not just the default, so
+  // multi-mint bundles decode and can be swept.
+  const mints = new Set(repo.listSessionMintUrls());
+  mints.add(options.mintUrl);
+  for (const mintUrl of mints) {
+    await manager.mint.addMint(mintUrl, { trusted: true }).catch((err: unknown) => {
+      console.error(`  ! could not load mint ${mintUrl}: ${(err as Error).message}`);
+    });
+  }
 
   try {
     if (command === 'balance') {
