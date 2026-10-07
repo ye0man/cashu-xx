@@ -3,11 +3,20 @@ import type { FastifyInstance } from 'fastify';
 import type { WalletService } from '../wallet/WalletService';
 import { mapWalletError, type RouteGuard } from './helpers';
 
-export function registerMeltRoutes(app: FastifyInstance, wallet: WalletService, guard: RouteGuard): void {
-  app.get('/api/session/:id/melt', { preHandler: guard }, async (request, reply) => {
+export function registerPayoutRoutes(app: FastifyInstance, wallet: WalletService, guard: RouteGuard): void {
+  app.get('/api/session/:id/payout', { preHandler: guard }, async (request, reply) => {
     const { id } = request.params as { id: string };
     try {
-      return await wallet.meltPreview(id);
+      return await wallet.payoutPreview(id);
+    } catch (err) {
+      return mapWalletError(reply, err);
+    }
+  });
+
+  app.post('/api/session/:id/payout/token', { preHandler: guard }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    try {
+      return await wallet.payoutToken(id);
     } catch (err) {
       return mapWalletError(reply, err);
     }

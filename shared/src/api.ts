@@ -46,20 +46,38 @@ export interface DepositStatus {
 export const UnlockBodySchema = z.object({ milestoneId: z.enum(MILESTONE_IDS) });
 export type UnlockBody = z.infer<typeof UnlockBodySchema>;
 
+/** Recording a milestone is bookkeeping only: the sats are paid out once, at the end. */
 export interface UnlockResponse {
   milestoneId: MilestoneId;
-  token: string;
-  issuedAt: number;
+  unlockedAt: number;
 }
 
-export const CombineBodySchema = z.object({ milestoneIds: z.array(z.enum(MILESTONE_IDS)).min(1) });
-export type CombineBody = z.infer<typeof CombineBodySchema>;
+/**
+ * How a session's earned sats left (or will leave) the server:
+ * `open` nothing paid yet · `token` a combined cashu token was issued ·
+ * `melt_pending` a Lightning payment is settling · `melted` paid to Lightning ·
+ * `legacy` a pre-ledger run whose sats the operator must sweep.
+ */
+export type PayoutState = 'open' | 'token' | 'melt_pending' | 'melted' | 'legacy';
 
-export interface CombineResponse {
+export interface PayoutPreviewResponse {
+  state: PayoutState;
+  /** Milestones earned (and not yet paid out another way). */
+  earnedCount: number;
+  /** Sats those milestones are worth (10 each). */
+  earnedSats: number;
+  /** The combined token, once issued (state `token`). */
+  token?: string;
+  /** Sats inside the issued token, or sent over Lightning. */
+  paidSats?: number;
+}
+
+export interface PayoutTokenResponse {
+  /** One cashu token (V4 `cashuB…`) holding every earned sat. */
   token: string;
-  combinedCount: number;
   amountSats: number;
-  skippedRedeemed: number;
+  /** Milestones folded into the token. */
+  milestoneCount: number;
 }
 
 export interface LedgerResponse {
@@ -88,10 +106,9 @@ export interface MintListResponse {
   mints: MintCandidate[];
 }
 
-/** `milestoneIds` omitted = melt every outstanding (non-dead) token of the session. */
+/** Melts every earned (not yet paid out) sat of the session to `destination`. */
 export const MeltBodySchema = z.object({
   destination: z.string().trim().min(3),
-  milestoneIds: z.array(z.enum(MILESTONE_IDS)).min(1).optional(),
 });
 export type MeltBody = z.infer<typeof MeltBodySchema>;
 
@@ -109,13 +126,4 @@ export interface MeltResponse {
   destination: string;
   preimage?: string;
   error?: string;
-}
-
-export interface MeltPreviewResponse {
-  /** Sats the session can still melt (sum of reclaimable, non-dead tokens). */
-  availableSats: number;
-  /** How many tokens still back those sats. */
-  bundleCount: number;
-  /** Sats already paid out in a previous (completed) melt. */
-  meltedSats: number;
 }

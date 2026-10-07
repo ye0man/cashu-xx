@@ -24,7 +24,7 @@ export function mapWalletError(reply: FastifyReply, err: unknown): FastifyReply 
           ? 401
             : err.code === 'not_ready'
               ? 409
-              : err.code === 'reclaimed' || err.code === 'combined'
+              : err.code === 'reclaimed'
                 ? 410
                 : 400;
     return reply.code(status).send({ error: err.message, code: err.code });

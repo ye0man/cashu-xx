@@ -1,11 +1,10 @@
 import type * as Phaser from 'phaser';
 import type { MapDef } from '../data/maps';
-import type { Bitmap } from './bitmap';
-import { strip } from './bitmap';
+import { Bitmap, strip } from './bitmap';
 import { renderMap } from './compose';
 import { heroFrames, logoArt, npcSprites, propSprites, SPRITE_H, SPRITE_W } from './sprites';
 
-function toCanvas(bitmap: Bitmap): HTMLCanvasElement {
+export function toCanvas(bitmap: Bitmap): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = bitmap.width;
   canvas.height = bitmap.height;
@@ -42,6 +41,23 @@ export function registerArt(textures: Phaser.Textures.TextureManager): void {
     addTexture(textures, key, bitmap);
   }
   addTexture(textures, 'logo', logoArt());
+  addTexture(textures, 'logo-field', disc(52, 0x7f38ca));
+}
+
+/** A pixel-exact filled circle (the vector `add.circle` edge smears when upscaled). */
+export function disc(radius: number, rgb: number): Bitmap {
+  const size = radius * 2 + 1;
+  const out = new Bitmap(size, size);
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const dx = x - radius;
+      const dy = y - radius;
+      if (dx * dx + dy * dy <= radius * radius + radius) {
+        out.set(x, y, rgb);
+      }
+    }
+  }
+  return out;
 }
 
 /** Bakes a map once and returns its texture key (cached for the session). */

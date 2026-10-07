@@ -34,15 +34,18 @@ export interface MatchedSend {
 }
 
 export interface WithdrawPlan {
-  /** In-flight sends that still back an unredeemed game token. */
+  /** In-flight sends that still back an unredeemed pre-ledger game token. */
   matched: MatchedSend[];
   /** In-flight sends with no matching bundle — e.g. a prior withdrawal token. */
   orphanSends: SendOpInfo[];
+  /** In-flight sends backing a player's issued payout token: never swept. */
+  protectedSends: SendOpInfo[];
   /** Bundles that cannot be swept: already redeemed, or not real tokens. */
   unsweepable: BundleTokenInfo[];
   totals: {
     matchedSats: number;
     orphanSats: number;
+    protectedSats: number;
     alreadyReclaimedSats: number;
     undecodableBundles: number;
     redeemedBundles: number;
@@ -52,14 +55,17 @@ export interface WithdrawPlan {
   warnings: string[];
 }
 
-export function planWithdraw(bundles: BundleTokenInfo[], sends: SendOpInfo[]): WithdrawPlan {
-  // A combined/melted bundle's sats were re-sent or paid out, so like reclaimed
-  // it is dead to the operator sweep. An in-progress combine/melt (`combining`,
-  // `melting`) is also dead here: the sweep is taking over the wallet, so its
-  // sends are reclaimed into the withdrawal and a later operation must not
-  // reissue them.
-  const dead = (bundle: BundleTokenInfo): boolean =>
-    isDeadBundleState(bundle.state) || bundle.state === 'combining' || bundle.state === 'melting';
+/**
+ * @param bundles pre-ledger bundles (rows that carry a stored token)
+ * @param sends every in-flight send in the wallet
+ * @param protectedOpIds send ops backing issued player payout tokens
+ */
+export function planWithdraw(
+  bundles: BundleTokenInfo[],
+  sends: SendOpInfo[],
+  protectedOpIds: ReadonlySet<string> = new Set(),
+): WithdrawPlan {
+  const dead = (bundle: BundleTokenInfo): boolean => isDeadBundleState(bundle.state);
   const bySecret = new Map<string, BundleTokenInfo>();
   for (const bundle of bundles) {
     if (dead(bundle) || !bundle.secrets) {
@@ -72,9 +78,14 @@ export function planWithdraw(bundles: BundleTokenInfo[], sends: SendOpInfo[]): W
 
   const matched: MatchedSend[] = [];
   const orphanSends: SendOpInfo[] = [];
+  const protectedSends: SendOpInfo[] = [];
   const matchedBundles = new Set<BundleTokenInfo>();
 
   for (const op of sends) {
+    if (protectedOpIds.has(op.id)) {
+      protectedSends.push(op);
+      continue;
+    }
     const bundle = op.secrets.map((secret) => bySecret.get(secret)).find((found) => found !== undefined);
     if (bundle && !matchedBundles.has(bundle)) {
       matchedBundles.add(bundle);
@@ -101,15 +112,17 @@ export function planWithdraw(bundles: BundleTokenInfo[], sends: SendOpInfo[]): W
   return {
     matched,
     orphanSends,
+    protectedSends,
     unsweepable,
     totals: {
       matchedSats: matched.reduce((sum, m) => sum + m.op.amount, 0),
       orphanSats: orphanSends.reduce((sum, op) => sum + op.amount, 0),
+      protectedSats: protectedSends.reduce((sum, op) => sum + op.amount, 0),
       alreadyReclaimedSats: bundles.filter(dead).reduce((sum, b) => sum + b.sats, 0),
       undecodableBundles: undecodable.length,
       redeemedBundles: redeemed,
       lockedBundles: real.filter((b) => b.state === 'locked').length,
-      issuedBundles: real.filter((b) => b.state === 'issued').length,
+      issuedBundles: real.filter((b) => b.state === 'unlocked').length,
     },
     warnings,
   };
@@ -119,10 +132,13 @@ export function planWithdraw(bundles: BundleTokenInfo[], sends: SendOpInfo[]): W
 export function formatPlan(plan: WithdrawPlan): string[] {
   const { totals } = plan;
   const lines = [
-    `Unredeemed game tokens to reclaim  : ${plan.matched.length} (${totals.matchedSats} sats)`,
+    `Unredeemed pre-ledger tokens       : ${plan.matched.length} (${totals.matchedSats} sats)`,
   ];
   if (plan.orphanSends.length > 0) {
     lines.push(`Orphan sends (old withdrawal?)     : ${plan.orphanSends.length} (${totals.orphanSats} sats)`);
+  }
+  if (plan.protectedSends.length > 0) {
+    lines.push(`Player payout tokens (kept)        : ${plan.protectedSends.length} (${totals.protectedSats} sats)`);
   }
   if (totals.alreadyReclaimedSats > 0) {
     lines.push(`Already reclaimed (skipped)        : ${totals.alreadyReclaimedSats} sats`);

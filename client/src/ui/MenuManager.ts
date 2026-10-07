@@ -7,6 +7,7 @@ import { getGameSession } from '../systems/session';
 import { cycleTextSpeed, getSettings, toggleMuted } from '../systems/settings';
 import { worldState, writeSave } from '../systems/save';
 import type { Direction } from '../systems/movement';
+import { type PixelText, pixelText } from './text';
 
 type MenuPage = 'DRAFT' | 'TOKENS' | 'SIGNS' | 'SETTINGS' | 'SAVE';
 
@@ -21,9 +22,9 @@ export interface MenuSnapshot {
 
 export class MenuManager {
   private readonly container: Phaser.GameObjects.Container;
-  private readonly tabsText: Phaser.GameObjects.Text;
-  private readonly bodyText: Phaser.GameObjects.Text;
-  private readonly trainerText: Phaser.GameObjects.Text;
+  private readonly tabsText: PixelText;
+  private readonly bodyText: PixelText;
+  private readonly trainerText: PixelText;
   private readonly actionKeys: Phaser.Input.Keyboard.Key[];
   private readonly closeKeys: Phaser.Input.Keyboard.Key[];
   private readonly muteKeys: Phaser.Input.Keyboard.Key[];
@@ -46,24 +47,11 @@ export class MenuManager {
       .rectangle(40, 30, width - 80, height - 70, 0x120a24, 0.97)
       .setOrigin(0)
       .setStrokeStyle(2, 0x7b2fbe);
-    this.tabsText = scene.add.text(54, 42, '', {
-      fontFamily: 'Courier New',
-      fontSize: '13px',
-      color: '#9d5fe0',
-    });
-    this.bodyText = scene.add.text(54, 68, '', {
-      fontFamily: 'Courier New',
-      fontSize: '12px',
-      color: '#e8c9a0',
-      wordWrap: { width: width - 110 },
-    });
+    this.tabsText = pixelText(scene, 54, 42, '', { color: '#9d5fe0' });
+    this.bodyText = pixelText(scene, 54, 64, '', { color: '#e8c9a0', maxWidth: width - 110, lineSpacing: 2 });
     // The Trainer ID is the only way back into this run, so it rides along on
     // every menu page — not just the payment screen where you first saw it.
-    this.trainerText = scene.add.text(54, height - 54, '', {
-      fontFamily: 'Courier New',
-      fontSize: '10px',
-      color: '#b0a8bd',
-    });
+    this.trainerText = pixelText(scene, 54, height - 54, '', { color: '#b0a8bd' });
     this.container.add([panel, this.tabsText, this.bodyText, this.trainerText]);
 
     const keyboard = scene.input.keyboard;
@@ -180,10 +168,10 @@ export class MenuManager {
     }
     if (page === 'TOKENS') {
       const rows = MILESTONE_IDS.map((id, index) => {
-        const state = isMilestoneEarned(id) ? 'CLAIMED' : 'LOCKED';
+        const state = isMilestoneEarned(id) ? 'FOUND' : 'LOCKED';
         return `${String(index + 1).padStart(2, '0')}  ${MILESTONE_LABELS[id].padEnd(22, '.')} ${state}`;
       });
-      return ['10 TOKENS · 10 SATS EACH', '', ...rows].join('\n');
+      return ['10 TOKENS · 10 SATS EACH · BUNDLED INTO ONE AT THE END', '', ...rows].join('\n');
     }
     if (page === 'SIGNS') {
       const read = [...worldState.readSigns];

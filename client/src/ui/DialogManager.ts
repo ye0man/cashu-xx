@@ -1,13 +1,17 @@
 import * as Phaser from 'phaser';
+import { GLYPH_H, GLYPH_W } from '../art/font';
 import { audio } from '../systems/audio';
 import type { DialogueScript } from '../systems/dialogue';
 import { TEXT_SPEED_MS, getSettings } from '../systems/settings';
+import { type PixelText, pixelText } from './text';
+
+const LINE_SPACING = 2;
 
 export class DialogManager {
   private readonly container: Phaser.GameObjects.Container;
   private readonly panel: Phaser.GameObjects.Rectangle;
-  private readonly speakerText: Phaser.GameObjects.Text;
-  private readonly bodyText: Phaser.GameObjects.Text;
+  private readonly speakerText: PixelText;
+  private readonly bodyText: PixelText;
   private readonly viewWidth: number;
   private readonly viewHeight: number;
   private readonly actionKeys: Phaser.Input.Keyboard.Key[];
@@ -33,16 +37,11 @@ export class DialogManager {
       .rectangle(8, height - 92, width - 16, 84, 0x1e1036, 0.96)
       .setOrigin(0)
       .setStrokeStyle(2, 0xe8c9a0);
-    this.speakerText = scene.add.text(18, height - 86, '', {
-      fontFamily: 'Courier New',
-      fontSize: '12px',
-      color: '#9d5fe0',
-    });
-    this.bodyText = scene.add.text(18, height - 66, '', {
-      fontFamily: 'Courier New',
-      fontSize: '13px',
+    this.speakerText = pixelText(scene, 18, height - 86, '', { color: '#9d5fe0' });
+    this.bodyText = pixelText(scene, 18, height - 70, '', {
       color: '#f7e7cf',
-      wordWrap: { width: width - 44 },
+      maxWidth: width - 44,
+      lineSpacing: LINE_SPACING,
     });
     this.container.add([this.panel, this.speakerText, this.bodyText]);
 
@@ -87,18 +86,20 @@ export class DialogManager {
    */
   private layoutPanel(script: DialogueScript): void {
     const wrapWidth = this.viewWidth - 44;
-    // Courier New at 13px advances ~7.8px per character.
-    const rowsFor = (line: string): number => Math.max(1, Math.ceil((line.length * 7.8) / wrapWidth));
+    // Word wrap breaks early, so leave a few characters of slack per row.
+    const perRow = Math.floor(wrapWidth / GLYPH_W) - 4;
+    const rowsFor = (line: string): number => Math.max(1, Math.ceil(line.length / perRow));
     const lastLine = script.lines[script.lines.length - 1] ?? '';
     const rows = script.choices?.length
       ? rowsFor(lastLine) + script.choices.length
       : Math.max(1, ...script.lines.map(rowsFor));
-    const panelHeight = Math.min(this.viewHeight - 16, Math.max(84, 30 + rows * 16));
+    const lineHeight = GLYPH_H + LINE_SPACING;
+    const panelHeight = Math.min(this.viewHeight - 16, Math.max(72, 32 + rows * lineHeight));
     const top = this.viewHeight - 8 - panelHeight;
     this.panel.setSize(this.viewWidth - 16, panelHeight);
     this.panel.setPosition(8, top);
-    this.speakerText.setPosition(18, top + 6);
-    this.bodyText.setPosition(18, top + 26);
+    this.speakerText.setPosition(18, top + 8);
+    this.bodyText.setPosition(18, top + 24);
   }
 
   update(delta: number): void {

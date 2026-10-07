@@ -5,5 +5,4 @@ export interface LedgerRow {
   milestoneId: MilestoneId;
   state: BundleState;
   unlockedAt: number | null;
-  issuedAt: number | null;
 }

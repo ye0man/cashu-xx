@@ -21,6 +21,7 @@ import { worldState } from '../systems/save';
 import { type StoryContext, talkTo, touchPickup } from '../systems/story';
 import { DialogManager } from '../ui/DialogManager';
 import { MenuManager } from '../ui/MenuManager';
+import { PixelLabel } from '../ui/text';
 import { TokenBank } from '../ui/TokenBank';
 
 interface WorldEntry {
@@ -66,8 +67,8 @@ export class WorldScene extends Phaser.Scene {
   private menu!: MenuManager;
   private tokenBank!: TokenBank;
   private night!: NightOverlay;
-  private hint!: Phaser.GameObjects.Text;
-  private toast!: Phaser.GameObjects.Text;
+  private hint!: PixelLabel;
+  private toast!: PixelLabel;
   private toastEvent: Phaser.Time.TimerEvent | null = null;
   private walkClock = 0;
   private pickupSprites: { flag: string; sprite: Phaser.GameObjects.Image }[] = [];
@@ -119,37 +120,25 @@ export class WorldScene extends Phaser.Scene {
     this.cameras.main.setBounds(boundsX, boundsY, Math.max(worldWidth, viewW), Math.max(worldHeight, viewH));
     this.cameras.main.startFollow(this.player, true, 0.2, 0.2);
 
-    this.add
-      .text(6, 6, this.mapDef.name, {
-        fontFamily: 'Courier New',
-        fontSize: '11px',
-        color: '#f7e7cf',
-        backgroundColor: '#2a1f3d',
-        padding: { x: 5, y: 3 },
-      })
+    new PixelLabel(this, 6, 6, this.mapDef.name, { color: '#f7e7cf', background: 0x2a1f3d })
       .setScrollFactor(0)
       .setDepth(50);
 
-    this.hint = this.add
-      .text(6, GAME_CONFIG.height - 21, 'ARROWS/WASD move   Z talk/read   X menu   N night', {
-        fontFamily: 'Courier New',
-        fontSize: '11px',
-        color: '#e0d8ec',
-        backgroundColor: '#2a1f3dcc',
-        padding: { x: 5, y: 3 },
-      })
+    this.hint = new PixelLabel(this, 6, GAME_CONFIG.height - 20, 'ARROWS/WASD move   Z talk/read   X menu   N night', {
+      color: '#e0d8ec',
+      background: 0x2a1f3d,
+      backgroundAlpha: 0.8,
+    })
       .setScrollFactor(0)
       .setDepth(50);
 
-    this.toast = this.add
-      .text(GAME_CONFIG.width / 2, 28, '', {
-        fontFamily: 'Courier New',
-        fontSize: '11px',
-        color: '#f7e7cf',
-        backgroundColor: '#1e1036',
-        padding: { x: 6, y: 4 },
-      })
-      .setOrigin(0.5)
+    this.toast = new PixelLabel(this, GAME_CONFIG.width / 2, 22, '', {
+      color: '#f7e7cf',
+      background: 0x1e1036,
+      padX: 6,
+      padY: 4,
+      centered: true,
+    })
       .setScrollFactor(0)
       .setDepth(80)
       .setAlpha(0);

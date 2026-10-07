@@ -1,15 +1,15 @@
 import type {
   ClaimResponse,
-  CombineResponse,
   CreateSessionResponse,
   DepositQuote,
   DepositStatus,
   LedgerResponse,
-  MeltPreviewResponse,
   MeltResponse,
   MilestoneId,
   MintInfoResponse,
   MintListResponse,
+  PayoutPreviewResponse,
+  PayoutTokenResponse,
   UnlockResponse,
 } from '@cashu-xx/shared';
 import { getGameSession } from './session';
@@ -88,19 +88,15 @@ export const api = {
       body: { milestoneId },
       auth: true,
     }),
-  combine: (sessionId: string, milestoneIds: MilestoneId[]) =>
-    request<CombineResponse>(`/api/session/${sessionId}/combine`, {
-      method: 'POST',
-      body: { milestoneIds },
-      auth: true,
-    }),
   ledger: (sessionId: string) => request<LedgerResponse>(`/api/session/${sessionId}/ledger`, { auth: true }),
-  meltPreview: (sessionId: string) =>
-    request<MeltPreviewResponse>(`/api/session/${sessionId}/melt`, { auth: true }),
-  melt: (sessionId: string, destination: string, milestoneIds?: MilestoneId[]) =>
+  payoutPreview: (sessionId: string) =>
+    request<PayoutPreviewResponse>(`/api/session/${sessionId}/payout`, { auth: true }),
+  payoutToken: (sessionId: string) =>
+    request<PayoutTokenResponse>(`/api/session/${sessionId}/payout/token`, { method: 'POST', auth: true }),
+  melt: (sessionId: string, destination: string) =>
     request<MeltResponse>(`/api/session/${sessionId}/melt`, {
       method: 'POST',
-      body: milestoneIds ? { destination, milestoneIds } : { destination },
+      body: { destination },
       auth: true,
     }),
   claim: (claimCode: string) =>

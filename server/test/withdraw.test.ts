@@ -47,7 +47,7 @@ describe('planWithdraw', () => {
   it('never reclaims already-redeemed, reclaimed, or undecodable bundles', () => {
     const plan = planWithdraw(
       [
-        bundle({ milestoneId: 'impl-coco' as MilestoneId, state: 'issued' }), // redeemed: no in-flight send
+        bundle({ milestoneId: 'impl-coco' as MilestoneId, state: 'unlocked' }), // redeemed: no in-flight send
         bundle({ milestoneId: 'impl-pip' as MilestoneId, state: 'reclaimed' }),
         bundle({ milestoneId: 'ceremony' as MilestoneId, secrets: null, sats: 0 }), // mock / foreign
       ],
@@ -70,6 +70,14 @@ describe('planWithdraw', () => {
     expect(plan.totals.issuedBundles).toBe(0);
   });
 
+  it('never sweeps a send that backs an issued player payout token', () => {
+    const plan = planWithdraw([], [send({ id: 'payout-op', secrets: ['p'] })], new Set(['payout-op']));
+    expect(plan.orphanSends).toHaveLength(0);
+    expect(plan.protectedSends.map((op) => op.id)).toEqual(['payout-op']);
+    expect(plan.totals.protectedSats).toBe(10);
+    expect(formatPlan(plan).join('\n')).toContain('payout tokens (kept)');
+  });
+
   it('formats a readable dry-run summary', () => {
     const lines = formatPlan(planWithdraw([bundle()], [send()]));
     expect(lines[0]).toContain('1');
@@ -78,8 +86,8 @@ describe('planWithdraw', () => {
   });
 });
 
-describe('Repo.markReclaimed', () => {
-  it('flips a bundle to the reclaimed state', () => {
+describe('Repo ledger', () => {
+  function sessionRepo(): Repo {
     const repo = new Repo(':memory:');
     repo.createSession({
       id: 's1',
@@ -93,10 +101,38 @@ describe('Repo.markReclaimed', () => {
       state: 'created',
       created_at: Date.now(),
     });
-    repo.createBundles('s1', [{ milestoneId: 'impl-rusty' as MilestoneId, token: 'cashuBxyz' }]);
+    return repo;
+  }
+
+  it('flips a bundle to the reclaimed state', () => {
+    const repo = sessionRepo();
+    repo.createLedger('s1');
     expect(repo.getBundle('s1', 'impl-rusty' as MilestoneId)?.state).toBe('locked');
     repo.markReclaimed('s1', 'impl-rusty' as MilestoneId);
     expect(repo.getBundle('s1', 'impl-rusty' as MilestoneId)?.state).toBe('reclaimed');
+    repo.close();
+  });
+
+  it('opens the ledger idempotently and flags pre-ledger sessions', () => {
+    const repo = sessionRepo();
+    repo.createLedger('s1');
+    repo.createLedger('s1');
+    expect(repo.listBundles('s1')).toHaveLength(10);
+    expect(repo.isLegacy('s1')).toBe(false);
+    repo.setBundleToken('s1', 'impl-rusty' as MilestoneId, 'cashuAold');
+    expect(repo.isLegacy('s1')).toBe(true);
+    expect(repo.markLegacyReclaimed()).toBe(1);
+    expect(repo.getBundle('s1', 'impl-rusty' as MilestoneId)?.state).toBe('reclaimed');
+    repo.close();
+  });
+
+  it('only unlocks a locked milestone once', () => {
+    const repo = sessionRepo();
+    repo.createLedger('s1');
+    repo.markUnlocked('s1', 'ceremony' as MilestoneId, 1000);
+    repo.markUnlocked('s1', 'ceremony' as MilestoneId, 2000);
+    expect(repo.getBundle('s1', 'ceremony' as MilestoneId)?.unlocked_at).toBe(1000);
+    expect(repo.listUnlocked('s1')).toEqual(['ceremony']);
     repo.close();
   });
 });

@@ -1,4 +1,4 @@
-import type { CombineResponse, CreateSessionResponse, UnlockResponse } from '@cashu-xx/shared';
+import type { CreateSessionResponse, PayoutTokenResponse, UnlockResponse } from '@cashu-xx/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app';
@@ -50,7 +50,8 @@ describe('API', () => {
     });
     expect(unlock.statusCode).toBe(200);
     const body: UnlockResponse = unlock.json();
-    expect(body.token.startsWith('cashuA')).toBe(true);
+    expect(body.milestoneId).toBe('impl-coco');
+    expect(body.unlockedAt).toBeGreaterThan(0);
 
     const ledger = await app.inject({ method: 'GET', url: `/api/session/${session.sessionId}/ledger`, headers });
     expect(ledger.statusCode).toBe(200);
@@ -100,53 +101,41 @@ describe('API', () => {
     expect(unlock.json().code).toBe('reclaimed');
   });
 
-  it('combines unlocked tokens into one and reports the spent bundles', async () => {    const created = await app.inject({ method: 'POST', url: '/api/session' });
-    const fresh: CreateSessionResponse = created.json();
-    const headers = { authorization: `Bearer ${fresh.authToken}` };
-    await app.inject({ method: 'GET', url: `/api/session/${fresh.sessionId}/deposit`, headers });
-    await app.inject({ method: 'GET', url: `/api/session/${fresh.sessionId}/deposit/status`, headers });
-
-    const combine = await app.inject({
-      method: 'POST',
-      url: `/api/session/${fresh.sessionId}/combine`,
-      headers,
-      payload: { milestoneIds: ['impl-coco', 'kimi-test'] },
-    });
-    expect(combine.statusCode).toBe(200);
-    const body: CombineResponse = combine.json();
-    expect(body.combinedCount).toBe(2);
-    expect(body.amountSats).toBe(20);
-    expect(body.skippedRedeemed).toBe(0);
-    expect(body.token.startsWith('cashuA')).toBe(true);
-
-    const unlock = await app.inject({
-      method: 'POST',
-      url: `/api/session/${fresh.sessionId}/unlock`,
-      headers,
-      payload: { milestoneId: 'impl-coco' },
-    });
-    expect(unlock.statusCode).toBe(410);
-    expect(unlock.json().code).toBe('combined');
-
-    const empty = await app.inject({
-      method: 'POST',
-      url: `/api/session/${fresh.sessionId}/combine`,
-      headers,
-      payload: { milestoneIds: [] },
-    });
-    expect(empty.statusCode).toBe(400);
-  });
-
-  it('melts outstanding tokens to a destination and reports the preview', async () => {
+  it('issues one combined token for the earned milestones', async () => {
     const created = await app.inject({ method: 'POST', url: '/api/session' });
     const fresh: CreateSessionResponse = created.json();
     const headers = { authorization: `Bearer ${fresh.authToken}` };
     await app.inject({ method: 'GET', url: `/api/session/${fresh.sessionId}/deposit`, headers });
     await app.inject({ method: 'GET', url: `/api/session/${fresh.sessionId}/deposit/status`, headers });
+    for (const milestoneId of ['impl-coco', 'kimi-test']) {
+      await app.inject({ method: 'POST', url: `/api/session/${fresh.sessionId}/unlock`, headers, payload: { milestoneId } });
+    }
 
-    const previewBefore = await app.inject({ method: 'GET', url: `/api/session/${fresh.sessionId}/melt`, headers });
-    expect(previewBefore.statusCode).toBe(200);
-    expect(previewBefore.json().availableSats).toBe(100);
+    const preview = await app.inject({ method: 'GET', url: `/api/session/${fresh.sessionId}/payout`, headers });
+    expect(preview.json()).toMatchObject({ state: 'open', earnedCount: 2, earnedSats: 20 });
+
+    const payout = await app.inject({ method: 'POST', url: `/api/session/${fresh.sessionId}/payout/token`, headers });
+    expect(payout.statusCode).toBe(200);
+    const body: PayoutTokenResponse = payout.json();
+    expect(body).toMatchObject({ amountSats: 20, milestoneCount: 2 });
+    expect(body.token.startsWith('cashuB')).toBe(true);
+
+    const after = await app.inject({ method: 'GET', url: `/api/session/${fresh.sessionId}/payout`, headers });
+    expect(after.json()).toMatchObject({ state: 'token', token: body.token });
+  });
+
+  it('melts earned sats to a destination', async () => {
+    const created = await app.inject({ method: 'POST', url: '/api/session' });
+    const fresh: CreateSessionResponse = created.json();
+    const headers = { authorization: `Bearer ${fresh.authToken}` };
+    await app.inject({ method: 'GET', url: `/api/session/${fresh.sessionId}/deposit`, headers });
+    await app.inject({ method: 'GET', url: `/api/session/${fresh.sessionId}/deposit/status`, headers });
+    await app.inject({
+      method: 'POST',
+      url: `/api/session/${fresh.sessionId}/unlock`,
+      headers,
+      payload: { milestoneId: 'ceremony' },
+    });
 
     const melt = await app.inject({
       method: 'POST',
@@ -155,10 +144,10 @@ describe('API', () => {
       payload: { destination: 'player@wallet.example' },
     });
     expect(melt.statusCode).toBe(200);
-    expect(melt.json()).toMatchObject({ state: 'melted', paid: true, amountSats: 100 });
+    expect(melt.json()).toMatchObject({ state: 'melted', paid: true, amountSats: 10 });
 
-    const previewAfter = await app.inject({ method: 'GET', url: `/api/session/${fresh.sessionId}/melt`, headers });
-    expect(previewAfter.json()).toMatchObject({ availableSats: 0, meltedSats: 100 });
+    const previewAfter = await app.inject({ method: 'GET', url: `/api/session/${fresh.sessionId}/payout`, headers });
+    expect(previewAfter.json()).toMatchObject({ state: 'melted', paidSats: 10 });
 
     const bad = await app.inject({
       method: 'POST',

@@ -14,9 +14,14 @@ CREATE TABLE IF NOT EXISTS sessions (
   melt_state TEXT,
   melt_amount_sats INTEGER,
   melt_fee_sats INTEGER,
-  melt_preimage TEXT
+  melt_preimage TEXT,
+  claim_op_id TEXT,
+  claim_token TEXT,
+  claim_amount_sats INTEGER
 );
 
+-- One row per milestone: the session ledger. `token` is only set on rows from
+-- before the ledger model (pre-split live sends), which the operator sweeps.
 CREATE TABLE IF NOT EXISTS bundles (
   session_id TEXT NOT NULL,
   milestone_id TEXT NOT NULL,

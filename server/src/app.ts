@@ -1,12 +1,11 @@
 import cors from '@fastify/cors';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { MintInfoResponse, MintListResponse } from '@cashu-xx/shared';
-import { registerCombineRoutes } from './routes/combine';
 import { registerDepositRoutes } from './routes/deposit';
 import { makeGuard } from './routes/helpers';
 import { registerLedgerRoutes } from './routes/ledger';
-import { registerMeltRoutes } from './routes/melt';
 import { registerMintRoutes } from './routes/mint';
+import { registerPayoutRoutes } from './routes/payout';
 import { registerSessionRoutes } from './routes/session';
 import { registerUnlockRoutes } from './routes/unlock';
 import type { WalletService } from './wallet/WalletService';
@@ -56,8 +55,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   registerSessionRoutes(app, options.wallet);
   registerDepositRoutes(app, options.wallet, guard);
   registerUnlockRoutes(app, options.wallet, guard);
-  registerCombineRoutes(app, options.wallet, guard);
-  registerMeltRoutes(app, options.wallet, guard);
+  registerPayoutRoutes(app, options.wallet, guard);
   registerLedgerRoutes(app, options.wallet, guard);
   registerMintRoutes(app, {
     getMintInfo: (url) => options.getMintInfo?.(url) ?? NO_MINT,

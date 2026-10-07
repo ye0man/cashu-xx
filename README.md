@@ -50,14 +50,19 @@ See [`docs/ROADMAP.md`](docs/ROADMAP.md).
 2. **Pay** — scan a 100-sat Lightning invoice (any LN wallet works). Your
    **Trainer ID** (claim code) appears on the payment screen — save it.
 3. **Play** — ~30 min of quests modeled on the NUT contribution process.
-4. **Melt** — when you're done, Prof. Hickory melts your outstanding tokens to a
-   Lightning address or invoice you give him. You can cash out early too; the
-   ending melts whatever is left. No QR juggling, no manual combine.
+4. **Cash out** — when you're done, Prof. Hickory bundles every token you found
+   into **one cashu token**, shown as a single QR on the ending screen: scan it
+   with any cashu wallet (or press C to copy it). Prefer Lightning? Press L and
+   give a Lightning address or invoice; the token is taken back and melted
+   instead. You get 10 sats per token found; unfound tokens stay with the mint.
 
 Ecash defaults to the [Minibits mint](https://minibits.cash) (best-effort beta
-mint — small amounts only). Mints that charge an input fee are allowed: the fee
-is taken out of the sats you can redeem, so a fee-bearing mint pays out a little
-under the full amount rather than failing.
+mint — small amounts only). Mints that charge an input fee are allowed.
+
+Under the hood the 100 sats are minted into the server wallet and the server
+keeps a per-session ledger of found tokens; nothing is pre-split. The payout is
+one send of exactly the earned amount, encoded as a V4 `cashuB` token without
+DLEQ proofs (a handful of proofs, ~700 chars, fits a scannable QR).
 
 ## Stack
 
@@ -76,17 +81,18 @@ npm test           # vitest (wallet + API + world data)
 ```
 
 With `dev:real`: pay the 100-sat invoice with any Lightning wallet, play, then
-cash out with Prof. Hickory — he melts your sats to a Lightning address or
-invoice. `MINT_URL` sets the default mint (players can switch per run from the
-directory).
+see Prof. Hickory for your combined token. `MINT_URL` sets the default mint
+(players can switch per run from the directory). The server logs
+`[timing] deposit quote …` per invoice; it should be one mint round trip
+(~0.3–0.6 s).
 
 Controls: arrows/WASD move · Z talk/read · X menu · N night · text speed and
 sound in the menu's SETTINGS page.
 
-## Operator: unclaimed ecash
+## Operator: the server wallet
 
-Tokens a player never cashed out stay in the server wallet (as pending sends in
-coco); sats the player melted are already gone. To sweep the leftovers into a
+All entry sats live in one pooled wallet; `balance` shows what open sessions are
+still owed. Unfound tokens' sats stay in the pool. To sweep the surplus into a
 token for your own wallet:
 
 ```bash
@@ -97,22 +103,26 @@ npm run wallet -w server -- withdraw --yes
 
 Stop the game server first; the tool refuses to run if it is up (two SQLite
 writers would corrupt the wallet). It backs up the databases to
-`server/data/backups/`, reclaims every unredeemed/melted-in-progress token, marks
-those game tokens `reclaimed`, and writes one token per mint to
-`server/data/withdrawals/` (players then get "the operator withdrew the sats"
-instead of a dead token).
+`server/data/backups/` and writes one token per mint to
+`server/data/withdrawals/`. It keeps back what open sessions are owed (pass
+`--all` to sweep everything) and never touches issued player payout tokens.
+
+Wallets from before the ledger model (live per-milestone sends, leaked
+`inflight` proofs, fragmented 2/4-sat proofs) are repaired with:
+
+```bash
+npm run wallet -w server -- cleanup        # dry run
+npm run wallet -w server -- cleanup --yes  # reclaim old sends, release orphaned proofs, consolidate
+```
 
 If a mint took a payment but never issued the proofs (e.g. an older coco rejected
 an empty `pubkey` as an ownership conflict), recover those sats first:
 
 ```bash
 npm run wallet -w server -- recycle    # re-issues paid-but-unissued quotes
-npm run wallet -w server -- withdraw --yes
 ```
 
-Expect it to take a few minutes: coco re-checks every send against the mint on
-startup, and the mint API is rate-limited. Re-running is safe — both commands are
-idempotent.
+All commands are idempotent; re-running is safe.
 
 ## Credits & licenses
 

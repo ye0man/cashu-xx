@@ -10,17 +10,20 @@ import type { WalletService } from './wallet/WalletService';
 const config = loadConfig();
 const repo = new Repo(config.dbPath);
 
+const directory = new MintDirectory();
+
 let wallet: WalletService;
 if (config.wallet === 'minibits') {
   wallet = new MinibitsWallet(repo, {
     mintUrl: config.mintUrl,
     dataDir: config.dataDir,
+    // Session creation reuses the cached mint check behind /api/mint(s)
+    // instead of a fresh two-request round trip on every ENTER.
+    checkMint: (url) => directory.get(url),
   });
 } else {
   wallet = new MockWallet(repo);
 }
-
-const directory = new MintDirectory();
 
 const app = await buildApp({
   wallet,

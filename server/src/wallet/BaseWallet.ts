@@ -2,16 +2,17 @@ import { randomUUID } from 'node:crypto';
 import {
   DEFAULT_MINT_URL,
   normalizeMintUrl,
+  TOKEN_AMOUNT_SATS,
   type ClaimResponse,
-  type CombineResponse,
   type CreateSessionResponse,
   type DepositQuote,
   type DepositStatus,
   type LedgerRow,
   MILESTONE_IDS,
-  type MeltPreviewResponse,
   type MeltResponse,
   type MilestoneId,
+  type PayoutPreviewResponse,
+  type PayoutTokenResponse,
   type UnlockResponse,
 } from '@cashu-xx/shared';
 import type { Repo, SessionRow } from '../db/repo';
@@ -26,6 +27,10 @@ export function makeClaimCode(): string {
 }
 
 export abstract class BaseWallet implements WalletService {
+  /** One payout (token or melt) at a time per session: double-clicks share the first result. */
+  private readonly payouts = new Map<string, Promise<unknown>>();
+  private readonly sessionLocks = new Map<string, Promise<void>>();
+
   constructor(
     protected readonly repo: Repo,
     protected readonly defaultMintUrl: string = DEFAULT_MINT_URL,
@@ -83,28 +88,16 @@ export abstract class BaseWallet implements WalletService {
     if (!MILESTONE_IDS.includes(milestoneId)) {
       throw new WalletError('invalid', `unknown milestone "${milestoneId}"`);
     }
-    const bundle = this.repo.getBundle(row.id, milestoneId);
-    if (!bundle || bundle.token === null) {
-      throw new WalletError('not_ready', 'token not prepared yet — deposit first');
+    if (!this.repo.hasLedger(row.id)) {
+      throw new WalletError('not_ready', 'pay the entry invoice first');
     }
-    if (bundle.state === 'reclaimed') {
+    const bundle = this.repo.getBundle(row.id, milestoneId);
+    if (bundle?.state === 'reclaimed') {
       throw new WalletError('reclaimed', 'the operator withdrew the sats for this token');
     }
-    if (bundle.state === 'melted') {
-      throw new WalletError('reclaimed', 'these sats were already paid out to your Lightning wallet');
-    }
-    if (bundle.state === 'combining' || bundle.state === 'melting') {
-      throw new WalletError('not_ready', 'a cash-out is in progress for this token — retry in a moment');
-    }
-    if (bundle.state === 'combined') {
-      throw new WalletError('combined', 'this token was combined into a single token at Minibits HQ');
-    }
-    if (bundle.state === 'issued' && bundle.issued_at !== null) {
-      return { milestoneId, token: bundle.token, issuedAt: bundle.issued_at };
-    }
-    const issuedAt = Date.now();
-    this.repo.markIssued(row.id, milestoneId, issuedAt);
-    return { milestoneId, token: bundle.token, issuedAt };
+    const at = Date.now();
+    this.repo.markUnlocked(row.id, milestoneId, at);
+    return { milestoneId, unlockedAt: this.repo.getBundle(row.id, milestoneId)?.unlocked_at ?? at };
   }
 
   async getLedger(sessionId: string): Promise<LedgerRow[]> {
@@ -112,21 +105,115 @@ export abstract class BaseWallet implements WalletService {
     return this.ledgerRows(row.id);
   }
 
+  async payoutPreview(sessionId: string): Promise<PayoutPreviewResponse> {
+    const row = this.mustGet(sessionId);
+    const earnedCount = this.repo
+      .listBundles(row.id)
+      .filter((bundle) => bundle.state === 'unlocked' || bundle.state === 'claimed' || bundle.state === 'melted').length;
+    const base = { earnedCount, earnedSats: earnedCount * TOKEN_AMOUNT_SATS };
+    if (this.repo.isLegacy(row.id)) {
+      return { ...base, state: 'legacy' };
+    }
+    if (row.melt_state === 'melted') {
+      return { ...base, state: 'melted', paidSats: row.melt_amount_sats ?? 0 };
+    }
+    if (row.melt_state === 'pending') {
+      return { ...base, state: 'melt_pending', paidSats: row.melt_amount_sats ?? 0 };
+    }
+    if (row.claim_token) {
+      return { ...base, state: 'token', token: row.claim_token, paidSats: row.claim_amount_sats ?? 0 };
+    }
+    return { ...base, state: 'open' };
+  }
+
+  payoutToken(sessionId: string): Promise<PayoutTokenResponse> {
+    return this.serialize(sessionId, 'token', () => {
+      const row = this.payableSession(sessionId);
+      if (row.claim_token) {
+        return Promise.resolve({
+          token: row.claim_token,
+          amountSats: row.claim_amount_sats ?? 0,
+          milestoneCount: this.repo.listBundles(row.id).filter((bundle) => bundle.state === 'claimed').length,
+        });
+      }
+      return this.issuePayoutToken(row);
+    });
+  }
+
+  meltSession(sessionId: string, request: { destination: string }): Promise<MeltResponse> {
+    return this.serialize(sessionId, 'melt', () =>
+      this.runMelt(this.payableSession(sessionId, { allowMelt: true }), request),
+    );
+  }
+
+  /** Mint the combined token for `row`'s earned milestones (no token issued yet). */
+  protected abstract issuePayoutToken(row: SessionRow): Promise<PayoutTokenResponse>;
+  /** Pay `row`'s earned sats over Lightning, resuming an in-flight melt. */
+  protected abstract runMelt(row: SessionRow, request: { destination: string }): Promise<MeltResponse>;
+
   abstract getDepositQuote(sessionId: string): Promise<DepositQuote>;
   abstract getDepositStatus(sessionId: string): Promise<DepositStatus>;
-  abstract combineTokens(sessionId: string, milestoneIds: MilestoneId[]): Promise<CombineResponse>;
-  abstract meltPreview(sessionId: string): Promise<MeltPreviewResponse>;
-  abstract meltSession(
-    sessionId: string,
-    request: { destination: string; milestoneIds?: MilestoneId[] },
-  ): Promise<MeltResponse>;
+
+  /** The session, checked to be one whose sats can still be paid out. */
+  protected payableSession(sessionId: string, options: { allowMelt?: boolean } = {}): SessionRow {
+    const row = this.mustGet(sessionId);
+    if (!this.repo.hasLedger(row.id)) {
+      throw new WalletError('not_ready', 'pay the entry invoice first');
+    }
+    if (this.repo.isLegacy(row.id)) {
+      throw new WalletError('reclaimed', 'this run predates the payout update — ask the operator to sweep it');
+    }
+    if (row.melt_state === 'melted') {
+      throw new WalletError('reclaimed', 'these sats were already paid out to your Lightning wallet');
+    }
+    if (row.melt_state === 'pending' && !options.allowMelt) {
+      throw new WalletError('not_ready', 'a Lightning payout is still settling — retry in a moment');
+    }
+    return row;
+  }
+
+  /** Earned milestones that have not been paid out, or a `not_ready` error when there are none. */
+  protected earnedOrThrow(row: SessionRow): MilestoneId[] {
+    const earned = this.repo.listUnlocked(row.id);
+    if (earned.length === 0) {
+      throw new WalletError('not_ready', 'no tokens earned yet — go find some!');
+    }
+    return earned;
+  }
+
+  private serialize<T>(sessionId: string, kind: 'token' | 'melt', run: () => Promise<T>): Promise<T> {
+    // Same kind in flight: share it (a double-click must not pay twice).
+    const key = `${kind}:${sessionId}`;
+    const existing = this.payouts.get(key);
+    if (existing) {
+      return existing as Promise<T>;
+    }
+    // Different kinds queue behind each other so a token and a melt never race
+    // over the same earned sats.
+    const before = this.sessionLocks.get(sessionId) ?? Promise.resolve();
+    const pending = before
+      .catch(() => undefined)
+      .then(run)
+      .finally(() => {
+        this.payouts.delete(key);
+        if (this.sessionLocks.get(sessionId) === settled) {
+          this.sessionLocks.delete(sessionId);
+        }
+      });
+    const settled = pending.then(
+      () => undefined,
+      () => undefined,
+    );
+    this.payouts.set(key, pending);
+    this.sessionLocks.set(sessionId, settled);
+    return pending;
+  }
 
   protected ledgerRows(sessionId: string): LedgerRow[] {
     return this.repo.listBundles(sessionId).map((bundle) => ({
       milestoneId: bundle.milestone_id,
       state: bundle.state,
       unlockedAt: bundle.unlocked_at,
-      issuedAt: bundle.issued_at,
     }));
   }
 

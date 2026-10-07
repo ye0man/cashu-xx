@@ -10,9 +10,9 @@ import {
 } from '../data/challenges';
 import type { PickupSpot } from '../data/maps';
 import type { DialogManager } from '../ui/DialogManager';
+import { pixelText } from '../ui/text';
 import { audio } from './audio';
 import { runQuestions, runShellRounds, runTraceOrder } from './challenges';
-import { meltOutstanding } from './melt';
 import { STORY_FLAGS, earnedMilestones, getJournal, hasFlag, hiddenFound, setFlag } from './quests';
 import { showTokenClaim } from './tokens';
 
@@ -142,67 +142,61 @@ async function talkHickory(ctx: StoryContext): Promise<void> {
   const earned = earnedMilestones().length;
   const choices = [{ id: 'wait', label: 'Not yet' }];
   if (earned > 0) {
-    choices.unshift({ id: 'cashout', label: 'Cash out my sats' });
-  }
-  if (earned >= 10) {
-    choices.unshift({ id: 'melt', label: 'Melt the tokens (ends the game)' });
+    choices.unshift({
+      id: 'bundle',
+      label: `Bundle my ${earned} token${earned === 1 ? '' : 's'} into one (ends the run)`,
+    });
   }
 
   const choice = await dialog.openAsync({
     speaker: 'PROF. HICKORY',
     lines: [
       earned >= 10
-        ? 'The ledger is spotless: 10/10 tokens. One ritual remains: the melt.'
+        ? 'The ledger is spotless: 10/10 tokens. One ritual remains: the bundling.'
         : `NUT-31! The spec survives because three codebases hum in tune. Tokens: ${earned}/10.`,
-      'Hand me the tokens and I’ll melt them down. The spending condition fires, the sats move on, and NUT-31 stands on its own.',
+      'Hand me your tokens and I’ll fold them into ONE cashu token. Scan it once and every sat is yours.',
     ],
     choices,
   });
-  if (choice === 'melt') {
-    const outcome = await meltOutstanding(ctx, { all: true });
-    if (outcome) {
-      await runMelt(ctx, outcome.receivedSats, outcome.pending);
-    }
+  if (choice !== 'bundle') {
+    await dialog.openAsync({
+      speaker: 'PROF. HICKORY',
+      lines: ['Take your time. The mint is patient. Mostly.'],
+    });
     return;
   }
-  if (choice === 'cashout') {
-    const outcome = await meltOutstanding(ctx, { all: false });
-    if (outcome && !outcome.pending) {
-      await dialog.openAsync({
-        speaker: 'PROF. HICKORY',
-        lines: [`${outcome.receivedSats} sats are on their way to your Lightning wallet. Spend them well.`],
-      });
+  if (earned < 10) {
+    const sure = await dialog.openAsync({
+      speaker: 'PROF. HICKORY',
+      lines: [
+        `${10 - earned} token${10 - earned === 1 ? ' is' : 's are'} still out there. Bundling ends the run, and unfound tokens stay with the mint.`,
+      ],
+      choices: [
+        { id: 'go', label: `Bundle my ${earned * 10} sats now` },
+        { id: 'wait', label: 'Keep exploring' },
+      ],
+    });
+    if (sure !== 'go') {
+      return;
     }
-    return;
   }
-  await dialog.openAsync({
-    speaker: 'PROF. HICKORY',
-    lines: ['Take your time. The mint is patient. Mostly.'],
-  });
+  await runFinale(ctx, earned);
 }
 
-async function runMelt(ctx: StoryContext, receivedSats: number, pending: boolean): Promise<void> {
+async function runFinale(ctx: StoryContext, earned: number): Promise<void> {
   const dialog = ctx.dialog;
   audio.playTheme('ceremony');
   await dialog.openAsync({
     speaker: 'PROF. HICKORY',
     lines: [
-      'Then it is time. Ten tokens in. One spending condition out.',
-      'Watch closely: the proofs vanish, the sats fly home, and a spec stands on its own two feet.',
+      `Then it is time. ${earned} token${earned === 1 ? '' : 's'} in. One token out.`,
+      'Watch closely: the proofs swap, the sats regroup, and a spec stands on its own two feet.',
     ],
   });
-  flashNumber(ctx, 'MELT');
+  flashNumber(ctx, 'BUNDLE');
   await delay(2100);
-  await dialog.openAsync({
-    speaker: 'PROF. HICKORY',
-    lines: [
-      pending
-        ? 'The Lightning payment is still settling — the sats are in flight and will land shortly.'
-        : `${receivedSats} sats came home to your wallet.`,
-      'It is done. You were a fine NUT, NUT-31.',
-    ],
-  });
-  ctx.scene.scene.start('EndingScene', { receivedSats });
+  // The ending scene mints the combined token and shows it as one QR.
+  ctx.scene.scene.start('EndingScene');
 }
 
 async function runCeremony(ctx: StoryContext): Promise<void> {
@@ -404,7 +398,7 @@ async function talkReceptionist(ctx: StoryContext): Promise<void> {
     ],
     lines: [
       earned >= 10
-        ? 'NUT-31! Ledger spotless: 10/10 tokens. When you’re ready, the professor does the melt.'
+        ? 'NUT-31! Ledger spotless: 10/10 tokens. When you’re ready, the professor bundles them into one.'
         : `Welcome to Minibits HQ. Tokens earned: ${earned}/10. Hidden finds: ${hidden}/4.`,
     ],
   });
@@ -418,7 +412,7 @@ async function talkReceptionist(ctx: StoryContext): Promise<void> {
       lines: [
         `Hidden tokens found: ${hidden}/4. Total tokens earned: ${earned}/10.`,
         'The lobby coffee is free. The ecash is yours to find. Ask around — trash cans lie.',
-        'When you’re ready to cash out, take it to Prof. Hickory — he melts your sats to Lightning.',
+        'When you’re ready to cash out, see Prof. Hickory — one combined token, one QR, done.',
       ],
     });
   }
@@ -449,28 +443,37 @@ function flashNumber(ctx: StoryContext, label: string): void {
     .setOrigin(0.5)
     .setScrollFactor(0)
     .setDepth(119);
-  const text = scene.add
-    .text(cx, cy, label, {
-      fontFamily: 'Courier New',
-      fontSize: '40px',
-      color: '#f7e7cf',
-      stroke: '#7b2fbe',
-      strokeThickness: 8,
-    })
+  const outline = pixelText(scene, cx + 3, cy + 3, label, { scale: 3, color: '#7b2fbe' })
     .setOrigin(0.5)
     .setScrollFactor(0)
-    .setDepth(120)
-    .setScale(0.8);
+    .setDepth(120);
+  const text = pixelText(scene, cx, cy, label, { scale: 3, color: '#f7e7cf' })
+    .setOrigin(0.5)
+    .setScrollFactor(0)
+    .setDepth(121);
   audio.playSfx('sfx-token');
-  // Hold it big and fully opaque, then fade out; the caller waits out the flash.
-  scene.tweens.add({ targets: text, scale: 1.5, duration: 1600, ease: 'Cubic.easeOut' });
+  // Grow in whole-pixel steps (3x → 6x): fractional scaling of pixel type
+  // makes uneven strokes.
+  const grow = { scale: 3 };
   scene.tweens.add({
-    targets: [text, backdrop],
+    targets: grow,
+    scale: 6,
+    duration: 1600,
+    ease: 'Cubic.easeOut',
+    onUpdate: () => {
+      const step = Math.round(grow.scale);
+      text.setFontSize(6 * step);
+      outline.setFontSize(6 * step).setPosition(cx + step, cy + step);
+    },
+  });
+  scene.tweens.add({
+    targets: [text, outline, backdrop],
     alpha: 0,
     delay: 1400,
     duration: 700,
     onComplete: () => {
       text.destroy();
+      outline.destroy();
       backdrop.destroy();
     },
   });

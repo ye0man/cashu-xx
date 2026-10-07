@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import type { BundleState, MeltState, MilestoneId, SessionState } from '@cashu-xx/shared';
+import { MILESTONE_IDS } from '@cashu-xx/shared';
 import Database from 'better-sqlite3';
 
 export interface SessionRow {
@@ -20,27 +21,36 @@ export interface SessionRow {
   melt_amount_sats: number | null;
   melt_fee_sats: number | null;
   melt_preimage: string | null;
+  /** coco send op backing the combined payout token (set before execute, for crash recovery). */
+  claim_op_id: string | null;
+  /** The combined payout token, once issued. */
+  claim_token: string | null;
+  claim_amount_sats: number | null;
 }
 
 export interface BundleRow {
   session_id: string;
   milestone_id: MilestoneId;
+  /** Only set on pre-ledger rows (a live per-milestone send the operator must sweep). */
   token: string | null;
   state: BundleState;
   unlocked_at: number | null;
   issued_at: number | null;
 }
 
-/** A session as inserted at creation: the melt columns start NULL. */
+/** A session as inserted at creation: the payout columns start NULL. */
 export type NewSession = Omit<
   SessionRow,
-  'melt_destination' | 'melt_op_id' | 'melt_state' | 'melt_amount_sats' | 'melt_fee_sats' | 'melt_preimage'
+  | 'melt_destination'
+  | 'melt_op_id'
+  | 'melt_state'
+  | 'melt_amount_sats'
+  | 'melt_fee_sats'
+  | 'melt_preimage'
+  | 'claim_op_id'
+  | 'claim_token'
+  | 'claim_amount_sats'
 >;
-
-export interface BundleSeed {
-  milestoneId: MilestoneId;
-  token: string;
-}
 
 export class Repo {
   private readonly db: Database.Database;
@@ -57,25 +67,28 @@ export class Repo {
 
   private migrate(): void {
     const columns = this.db.prepare('PRAGMA table_info(sessions)').all() as Array<{ name: string }>;
-    if (!columns.some((column) => column.name === 'mint_op_id')) {
-      this.db.exec('ALTER TABLE sessions ADD COLUMN mint_op_id TEXT');
-    }
-    if (!columns.some((column) => column.name === 'mint_url')) {
-      this.db.exec('ALTER TABLE sessions ADD COLUMN mint_url TEXT');
-    }
     for (const column of [
+      'mint_op_id TEXT',
+      'mint_url TEXT',
       'melt_destination TEXT',
       'melt_op_id TEXT',
       'melt_state TEXT',
       'melt_amount_sats INTEGER',
       'melt_fee_sats INTEGER',
       'melt_preimage TEXT',
+      'claim_op_id TEXT',
+      'claim_token TEXT',
+      'claim_amount_sats INTEGER',
     ]) {
       const name = column.split(' ')[0] as string;
       if (!columns.some((existing) => existing.name === name)) {
         this.db.exec(`ALTER TABLE sessions ADD COLUMN ${column}`);
       }
     }
+    // Pre-ledger bundle states: an issued token counts as earned; anything that
+    // was mid-combine/melt had its live send reclaimed, so it is swept.
+    this.db.exec(`UPDATE bundles SET state = 'unlocked' WHERE state = 'issued'`);
+    this.db.exec(`UPDATE bundles SET state = 'reclaimed' WHERE state IN ('combining', 'combined', 'melting')`);
   }
 
   createSession(row: NewSession): void {
@@ -121,22 +134,38 @@ export class Repo {
     this.db.prepare('UPDATE sessions SET state = ? WHERE id = ?').run(state, id);
   }
 
-  createBundles(sessionId: string, seeds: BundleSeed[]): void {
+  /** Open the session's milestone ledger (idempotent): every milestone starts locked. */
+  createLedger(sessionId: string): void {
     const insert = this.db.prepare(
-      `INSERT INTO bundles (session_id, milestone_id, token, state, unlocked_at, issued_at)
-       VALUES (?, ?, ?, 'locked', NULL, NULL)`,
+      `INSERT OR IGNORE INTO bundles (session_id, milestone_id, token, state, unlocked_at, issued_at)
+       VALUES (?, ?, NULL, 'locked', NULL, NULL)`,
     );
-    const tx = this.db.transaction((entries: BundleSeed[]) => {
-      for (const entry of entries) {
-        insert.run(sessionId, entry.milestoneId, entry.token);
+    const tx = this.db.transaction(() => {
+      for (const milestoneId of MILESTONE_IDS) {
+        insert.run(sessionId, milestoneId);
       }
     });
-    tx(seeds);
+    tx();
   }
 
-  hasBundles(sessionId: string): boolean {
+  hasLedger(sessionId: string): boolean {
     const row = this.db.prepare('SELECT COUNT(*) AS n FROM bundles WHERE session_id = ?').get(sessionId) as { n: number };
     return row.n > 0;
+  }
+
+  /** A pre-ledger session: its sats sit in per-milestone live sends, not the pooled balance. */
+  isLegacy(sessionId: string): boolean {
+    const row = this.db
+      .prepare('SELECT COUNT(*) AS n FROM bundles WHERE session_id = ? AND token IS NOT NULL')
+      .get(sessionId) as { n: number };
+    return row.n > 0;
+  }
+
+  /** Test/legacy helper: attach a stored per-milestone token to a ledger row. */
+  setBundleToken(sessionId: string, milestoneId: MilestoneId, token: string): void {
+    this.db
+      .prepare('UPDATE bundles SET token = ? WHERE session_id = ? AND milestone_id = ?')
+      .run(token, sessionId, milestoneId);
   }
 
   getBundle(sessionId: string, milestoneId: MilestoneId): BundleRow | undefined {
@@ -145,66 +174,89 @@ export class Repo {
       .get(sessionId, milestoneId) as BundleRow | undefined;
   }
 
-  markIssued(sessionId: string, milestoneId: MilestoneId, at: number): void {
+  listBundles(sessionId: string): BundleRow[] {
+    return this.db.prepare('SELECT * FROM bundles WHERE session_id = ? ORDER BY rowid').all(sessionId) as BundleRow[];
+  }
+
+  listAllBundles(): BundleRow[] {
+    return this.db.prepare('SELECT * FROM bundles ORDER BY rowid').all() as BundleRow[];
+  }
+
+  /** Record a milestone as earned. Only a locked row changes; repeats are no-ops. */
+  markUnlocked(sessionId: string, milestoneId: MilestoneId, at: number): void {
     this.db
       .prepare(
-        `UPDATE bundles SET state = 'issued', unlocked_at = ?, issued_at = ? WHERE session_id = ? AND milestone_id = ?`,
+        `UPDATE bundles SET state = 'unlocked', unlocked_at = ? WHERE session_id = ? AND milestone_id = ? AND state = 'locked'`,
       )
-      .run(at, at, sessionId, milestoneId);
+      .run(at, sessionId, milestoneId);
   }
 
-  markReclaimed(sessionId: string, milestoneId: MilestoneId): void {
-    this.db
-      .prepare(`UPDATE bundles SET state = 'reclaimed' WHERE session_id = ? AND milestone_id = ?`)
-      .run(sessionId, milestoneId);
+  /** Earned milestones whose sats have not left the session yet. */
+  listUnlocked(sessionId: string): MilestoneId[] {
+    const rows = this.db
+      .prepare(`SELECT milestone_id FROM bundles WHERE session_id = ? AND state = 'unlocked' ORDER BY rowid`)
+      .all(sessionId) as Array<{ milestone_id: MilestoneId }>;
+    return rows.map((row) => row.milestone_id);
   }
 
-  markCombined(sessionId: string, milestoneId: MilestoneId, at: number): void {
-    this.db
-      .prepare(
-        `UPDATE bundles SET state = 'combined', unlocked_at = COALESCE(unlocked_at, ?), issued_at = ? WHERE session_id = ? AND milestone_id = ?`,
-      )
-      .run(at, at, sessionId, milestoneId);
-  }
-
-  /** Mark bundles as an in-progress combine before the (irreversible) send reclaim. */
-  markCombining(sessionId: string, milestoneIds: MilestoneId[]): void {
-    this.setBundleStates(sessionId, milestoneIds, 'combining');
-  }
-
-  /** Mark bundles as an in-progress melt before the (irreversible) send reclaim. */
-  markMelting(sessionId: string, milestoneIds: MilestoneId[]): void {
-    this.setBundleStates(sessionId, milestoneIds, 'melting');
-  }
-
-  /** Mark bundles as paid out to the player's Lightning wallet. */
-  markMelted(sessionId: string, milestoneIds: MilestoneId[], at: number): void {
+  setBundleStates(sessionId: string, milestoneIds: MilestoneId[], state: BundleState, at?: number): void {
     const stmt = this.db.prepare(
-      `UPDATE bundles SET state = 'melted', unlocked_at = COALESCE(unlocked_at, ?), issued_at = ? WHERE session_id = ? AND milestone_id = ?`,
+      `UPDATE bundles SET state = ?, issued_at = COALESCE(?, issued_at) WHERE session_id = ? AND milestone_id = ?`,
     );
     const tx = this.db.transaction((ids: MilestoneId[]) => {
       for (const milestoneId of ids) {
-        stmt.run(at, at, sessionId, milestoneId);
+        stmt.run(state, at ?? null, sessionId, milestoneId);
       }
     });
     tx(milestoneIds);
   }
 
-  private setBundleStates(sessionId: string, milestoneIds: MilestoneId[], state: BundleState): void {
-    const stmt = this.db.prepare(`UPDATE bundles SET state = ? WHERE session_id = ? AND milestone_id = ?`);
-    const tx = this.db.transaction((ids: MilestoneId[]) => {
-      for (const milestoneId of ids) {
-        stmt.run(state, sessionId, milestoneId);
-      }
-    });
-    tx(milestoneIds);
+  /** Every milestone currently in `from` moves to `to` (e.g. claimed → unlocked on a token reclaim). */
+  moveBundleStates(sessionId: string, from: BundleState, to: BundleState): MilestoneId[] {
+    const ids = (
+      this.db
+        .prepare('SELECT milestone_id FROM bundles WHERE session_id = ? AND state = ? ORDER BY rowid')
+        .all(sessionId, from) as Array<{ milestone_id: MilestoneId }>
+    ).map((row) => row.milestone_id);
+    this.setBundleStates(sessionId, ids, to, to === 'unlocked' ? undefined : Date.now());
+    return ids;
+  }
+
+  markReclaimed(sessionId: string, milestoneId: MilestoneId): void {
+    this.setBundleStates(sessionId, [milestoneId], 'reclaimed');
+  }
+
+  /** After an operator sweep, every pre-ledger row is dead: its live send was reclaimed. */
+  markLegacyReclaimed(): number {
+    return this.db
+      .prepare(`UPDATE bundles SET state = 'reclaimed' WHERE token IS NOT NULL AND state != 'reclaimed'`)
+      .run().changes;
+  }
+
+  /** Record the send backing the payout token before executing it (crash recovery). */
+  startClaim(id: string, opId: string, amountSats: number): void {
+    this.db
+      .prepare('UPDATE sessions SET claim_op_id = ?, claim_amount_sats = ?, claim_token = NULL WHERE id = ?')
+      .run(opId, amountSats, id);
+  }
+
+  finishClaim(id: string, token: string): void {
+    this.db.prepare('UPDATE sessions SET claim_token = ? WHERE id = ?').run(token, id);
+  }
+
+  clearClaim(id: string): void {
+    this.db
+      .prepare('UPDATE sessions SET claim_op_id = NULL, claim_token = NULL, claim_amount_sats = NULL WHERE id = ?')
+      .run(id);
   }
 
   /** Record an in-flight melt operation (idempotency: a retry resumes it). */
-  startMelt(id: string, opId: string, destination: string): void {
+  startMelt(id: string, opId: string, destination: string, amountSats: number, feeSats: number): void {
     this.db
-      .prepare(`UPDATE sessions SET melt_op_id = ?, melt_destination = ?, melt_state = 'pending' WHERE id = ?`)
-      .run(opId, destination, id);
+      .prepare(
+        `UPDATE sessions SET melt_op_id = ?, melt_destination = ?, melt_state = 'pending', melt_amount_sats = ?, melt_fee_sats = ? WHERE id = ?`,
+      )
+      .run(opId, destination, amountSats, feeSats, id);
   }
 
   finishMelt(
@@ -220,39 +272,6 @@ export class Repo {
 
   clearMelt(id: string): void {
     this.db.prepare('UPDATE sessions SET melt_op_id = NULL, melt_state = NULL WHERE id = ?').run(id);
-  }
-
-  /** Restore a bundle to a specific state (used to undo a combine that claimed nothing). */
-  setBundleState(sessionId: string, milestoneId: MilestoneId, state: BundleState): void {
-    this.db
-      .prepare(`UPDATE bundles SET state = ? WHERE session_id = ? AND milestone_id = ?`)
-      .run(state, sessionId, milestoneId);
-  }
-
-  listBundles(sessionId: string): BundleRow[] {
-    return this.db.prepare('SELECT * FROM bundles WHERE session_id = ? ORDER BY rowid').all(sessionId) as BundleRow[];
-  }
-
-  listAllBundles(): BundleRow[] {
-    return this.db.prepare('SELECT * FROM bundles ORDER BY rowid').all() as BundleRow[];
-  }
-
-  listCombiningBundles(sessionId: string): BundleRow[] {
-    return this.db
-      .prepare(`SELECT * FROM bundles WHERE session_id = ? AND state = 'combining' ORDER BY rowid`)
-      .all(sessionId) as BundleRow[];
-  }
-
-  /**
-   * A sweep by the operator takes over the wallet, so any combine/melt left in
-   * progress is dead: its sats are either reclaimed into the sweep or already in
-   * the spendable balance being swept. Mark them so a later operation cannot
-   * reissue sats the sweep already took.
-   */
-  markAllInProgressReclaimed(): number {
-    return this.db
-      .prepare(`UPDATE bundles SET state = 'reclaimed' WHERE state IN ('combining', 'melting')`)
-      .run().changes;
   }
 
   close(): void {

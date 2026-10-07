@@ -2,6 +2,7 @@ import * as Phaser from 'phaser';
 import type { MintCandidate, MintListResponse } from '@cashu-xx/shared';
 import { api } from '../systems/api';
 import { setSelectedMint } from '../systems/mint';
+import { type PixelText, pixelText } from '../ui/text';
 
 const ROW_HEIGHT = 34;
 const ROW_TOP = 64;
@@ -23,7 +24,7 @@ function statusLine(mint: MintCandidate): string {
     return `${mint.name} · no bolt11 minting support`;
   }
   if (mint.feePpk > 0) {
-    return `${mint.name} · input fees ${mint.feePpk} ppk (taken from your payout)`;
+    return `${mint.name} · input fees ${mint.feePpk} ppk`;
   }
   return `${mint.name} · no fees`;
 }
@@ -34,7 +35,7 @@ export class MintScene extends Phaser.Scene {
   private index = 0;
   private busy = false;
   private listObjects: Phaser.GameObjects.GameObject[] = [];
-  private statusText!: Phaser.GameObjects.Text;
+  private statusText!: PixelText;
   private scroll = 0;
 
   constructor() {
@@ -48,30 +49,17 @@ export class MintScene extends Phaser.Scene {
     this.scroll = 0;
     this.listObjects = [];
 
-    this.add
-      .text(240, 22, 'MINT DIRECTORY', {
-        fontFamily: 'Courier New',
-        fontSize: '18px',
-        color: '#e8c9a0',
-      })
-      .setOrigin(0.5);
-    this.add
-      .text(240, 42, 'NUT-06: ask a mint who it is before you trust it', {
-        fontFamily: 'Courier New',
-        fontSize: '9px',
-        color: '#9d5fe0',
-      })
-      .setOrigin(0.5);
+    pixelText(this, 240, 12, 'MINT DIRECTORY', { scale: 2, color: '#e8c9a0' }).setOrigin(0.5, 0);
+    pixelText(this, 240, 36, 'NUT-06: ask a mint who it is before you trust it', { color: '#9d5fe0' }).setOrigin(
+      0.5,
+      0,
+    );
 
-    this.statusText = this.add
-      .text(240, 300, 'loading mints…', {
-        fontFamily: 'Courier New',
-        fontSize: '9px',
-        color: '#8a8298',
-        wordWrap: { width: 440 },
-        align: 'center',
-      })
-      .setOrigin(0.5);
+    this.statusText = pixelText(this, 240, 290, 'loading mints…', {
+      color: '#8a8298',
+      maxWidth: 456,
+      align: 'center',
+    }).setOrigin(0.5, 0);
 
     const keyboard = this.input.keyboard;
     if (keyboard) {
@@ -143,14 +131,8 @@ export class MintScene extends Phaser.Scene {
       const y = ROW_TOP + offset * ROW_HEIGHT;
       const isDefault = mint.url === this.defaultUrl;
       const name = `${selected ? '>' : ' '} ${mint.label}${isDefault ? '  [default]' : ''}`;
-      const primary = this.add.text(40, y, name, {
-        fontFamily: 'Courier New',
-        fontSize: '12px',
-        color: selected ? '#f7e7cf' : '#c9c0d8',
-      });
-      const secondary = this.add.text(52, y + 13, `${host(mint.url)} · ${statusLine(mint)}`, {
-        fontFamily: 'Courier New',
-        fontSize: '9px',
+      const primary = pixelText(this, 40, y, name, { color: selected ? '#f7e7cf' : '#c9c0d8' });
+      const secondary = pixelText(this, 52, y + 13, `${host(mint.url)} · ${statusLine(mint)}`, {
         color: mint.compatible ? (selected ? '#9d5fe0' : '#6b6478') : '#f07878',
       });
       this.listObjects.push(primary, secondary);
@@ -158,13 +140,7 @@ export class MintScene extends Phaser.Scene {
 
     if (this.mints.length === 0) {
       this.listObjects.push(
-        this.add
-          .text(240, 150, 'no mints listed', {
-            fontFamily: 'Courier New',
-            fontSize: '12px',
-            color: '#8a8298',
-          })
-          .setOrigin(0.5),
+        pixelText(this, 240, 150, 'no mints listed', { color: '#8a8298' }).setOrigin(0.5),
       );
     }
 

@@ -1,15 +1,15 @@
 import * as Phaser from 'phaser';
 import { MILESTONE_IDS, MILESTONE_LABELS } from '@cashu-xx/shared';
 import { isMilestoneEarned } from '../systems/quests';
+import { type PixelText, pixelText } from './text';
 
 /**
- * Read-only status board at Minibits HQ: which tokens have been secured. There
- * is no per-token claim here any more — sats are cashed out by melting with
- * Prof. Hickory.
+ * Read-only status board at Minibits HQ: which tokens have been found. The
+ * sats are paid out once, at the end, as a single combined token.
  */
 export class TokenBank {
   private readonly container: Phaser.GameObjects.Container;
-  private readonly bodyText: Phaser.GameObjects.Text;
+  private readonly bodyText: PixelText;
   private readonly closeKeys: Phaser.Input.Keyboard.Key[];
 
   constructor(scene: Phaser.Scene) {
@@ -19,13 +19,7 @@ export class TokenBank {
     const panel = scene.add
       .rectangle(width / 2, height / 2, width - 60, height - 50, 0x120a24, 0.98)
       .setStrokeStyle(2, 0x7b2fbe);
-    this.bodyText = scene.add
-      .text(width / 2 - (width - 100) / 2, 48, '', {
-        fontFamily: 'Courier New',
-        fontSize: '12px',
-        color: '#e8c9a0',
-      })
-      .setOrigin(0, 0);
+    this.bodyText = pixelText(scene, 50, 44, '', { color: '#e8c9a0', lineSpacing: 3 });
     this.container.add([panel, this.bodyText]);
 
     const keyboard = scene.input.keyboard;
@@ -61,13 +55,14 @@ export class TokenBank {
     const earned = MILESTONE_IDS.filter((id) => isMilestoneEarned(id)).length;
     const header = `MINIBITS HQ · TOKEN BANK        X close`;
     const rows = MILESTONE_IDS.map((id) => {
-      const state = isMilestoneEarned(id) ? 'SECURED' : '-------';
+      const state = isMilestoneEarned(id) ? 'FOUND' : '-----';
       return `  ${MILESTONE_LABELS[id].padEnd(22, '.')} ${state}`;
     });
     const footer = [
       '',
-      `Tokens secured: ${earned}/10.`,
-      'Take your sats to Prof. Hickory — he melts them to your Lightning wallet.',
+      `Tokens found: ${earned}/10 (${earned * 10} sats).`,
+      'Prof. Hickory bundles them into ONE cashu token at the end —',
+      'one QR to scan, or melt it straight to Lightning.',
     ];
     this.bodyText.setText([header, '', ...rows, ...footer].join('\n'));
   }
