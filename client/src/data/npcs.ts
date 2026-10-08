@@ -24,7 +24,7 @@ export const NPCS: Record<string, NpcDef> = {
   'civ-doner': {
     id: 'civ-doner',
     name: 'DÖNER DAN',
-    mapId: 'nussstadt',
+    mapId: 'nutsterdam',
     texture: 'npc-civ-a',
     flavor: {
       speaker: 'DÖNER DAN',
@@ -37,7 +37,7 @@ export const NPCS: Record<string, NpcDef> = {
   'civ-commuter': {
     id: 'civ-commuter',
     name: 'COMMUTER',
-    mapId: 'nussstadt',
+    mapId: 'nutsterdam',
     texture: 'npc-civ-b',
     flavor: {
       speaker: 'COMMUTER',

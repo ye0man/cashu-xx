@@ -161,7 +161,7 @@ export class PayScene extends Phaser.Scene {
         this.pollEvent?.remove();
         this.tickEvent?.remove();
         this.time.delayedCall(900, () => {
-          this.scene.start('WorldScene', { mapId: 'nussstadt' });
+          this.scene.start('WorldScene', { mapId: 'nutsterdam' });
         });
       }
     } catch (err) {

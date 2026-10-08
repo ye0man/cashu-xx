@@ -7,7 +7,7 @@
 An 8-bit browser RPG about getting merged into the Cashu spec.
 
 You are **XX** — a nut with sunglasses and no NUT number, a walking placeholder
-(`NUT-XX`). Pay a 100-sat invoice to enter **Nussstadt**, a Berlin-inspired city
+(`NUT-XX`). Pay a 100-sat invoice to enter **Nutsterdam**, an 8-bit city
 populated by the Cashu ecosystem (Rusty the cdk crab, Coco the cashu-ts coconut,
 Pip the nutshell python, DJ Mac the macadamia, Kimi from the red team, and
 Professor Hickory). Follow the real [CONTRIBUTING.md](https://github.com/cashubtc/nuts/blob/main/CONTRIBUTING.md)
@@ -19,9 +19,9 @@ milestones and found hidden around the city. Scan them with any cashu wallet.
 
 ## Screenshots
 
-| Title & payment | Nussstadt |
+| Title & payment | Nutsterdam |
 | --- | --- |
-| <img src="docs/screenshots/2-payment.png" alt="Payment screen with a lightning invoice QR and Trainer ID" width="360" /> | <img src="docs/screenshots/3-overworld.png" alt="The hero walking the cobblestone streets of Nussstadt" width="360" /> |
+| <img src="docs/screenshots/2-payment.png" alt="Payment screen with a lightning invoice QR and Trainer ID" width="360" /> | <img src="docs/screenshots/3-overworld.png" alt="The hero walking the cobblestone streets of Nutsterdam" width="360" /> |
 
 | Reading the signs | Hickory's lab |
 | --- | --- |

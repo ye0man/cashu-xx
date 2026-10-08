@@ -32,7 +32,7 @@ interface WorldEntry {
 }
 
 const MAP_THEMES: Record<string, ThemeKey> = {
-  nussstadt: 'overworld',
+  nutsterdam: 'overworld',
   lab: 'lab',
   cafe: 'overworld',
   'minibits-hq': 'hq',
@@ -84,7 +84,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   create(): void {
-    const mapId = this.entry.mapId ?? 'nussstadt';
+    const mapId = this.entry.mapId ?? 'nutsterdam';
     this.mapDef = MAPS[mapId];
     this.nightOn = mapId === 'hideout';
     const { tile } = GAME_CONFIG;

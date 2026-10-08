@@ -9,7 +9,7 @@ const allMaps = (): MapDef[] => Object.values(MAPS);
 describe('world data integrity', () => {
   it('has nine maps including the overworld', () => {
     expect(Object.keys(MAPS)).toHaveLength(9);
-    expect(MAPS.nussstadt.outdoor).toBe(true);
+    expect(MAPS.nutsterdam.outdoor).toBe(true);
   });
 
   it('every door lands on a walkable, non-door tile of an existing map', () => {
@@ -62,9 +62,9 @@ describe('world data integrity', () => {
   });
 
   it('door approach tiles on the overworld are walkable', () => {
-    const overworld = MAPS.nussstadt;
+    const overworld = MAPS.nutsterdam;
     const exits = allMaps()
-      .filter((map) => map.id !== 'nussstadt')
+      .filter((map) => map.id !== 'nutsterdam')
       .map((map) => map.doors[0]);
     for (const door of exits) {
       expect(

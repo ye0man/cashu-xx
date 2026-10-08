@@ -2,7 +2,7 @@
 
 > A 30-minute, Game Boy Color–style 8-bit RPG in the browser.
 > You are **XX** — a nut with sunglasses and no NUT number, a walking placeholder.
-> Pay a 100-sat invoice, walk around **Nussstadt** (a Berlin-inspired 8-bit city),
+> Pay a 100-sat invoice, walk around **Nutsterdam** (an 8-bit city),
 > follow the real [CONTRIBUTING.md](https://github.com/cashubtc/nuts/blob/main/CONTRIBUTING.md)
 > process, get your generic spec change reviewed, implemented, and merged — and
 > claw back your 100 sats as 10 cashu tokens hidden across the city and its quests.
@@ -52,7 +52,7 @@ the hero is a placeholder.
 
 | Act | Spec process (real) | Gameplay |
 | --- | --- | --- |
-| 0 — *Placeholder* | — | Title screen: pay the 100-sat invoice (QR). XX wakes up in Nussstadt with no number. Tutorial walk to the lab. |
+| 0 — *Placeholder* | — | Title screen: pay the 100-sat invoice (QR). XX wakes up in Nutsterdam with no number. Tutorial walk to the lab. |
 | 1 — *Open an Issue* | "Open an issue first" | **Prof. Hickory**'s lab. He frames the quest: a generic spec change (a new kind of spending condition — kept fuzzy on purpose). Mini-challenge: pick the right RFC 2119 keyword (MUST / SHOULD / MAY) in 3 sentences. Issue opened. |
 | 2 — *The PR* | PR titled `NUT-XX: …` | Hickory opens the PR with you. No token yet — drafts don't pay out. Journal flips to "PR opened". |
 | 3 — *Review* | Min. 2 maintainer reviews | Find two reviewers: **DJ Mac** (lost his record — fetch quest → token) and **Kimi** (red-team disclosure test → token). Both ACK → label: **"Awaiting Implementation PRs"**. |
@@ -91,11 +91,11 @@ teaching moment (a sign says so).
 - DJ Mac: *"My record's gone, man. The B-side had a jingle on it. A JINGLE."*
 - Kimi: *"Found a bug? Good. Now do the boring right thing."*
 
-## 6. World — Nussstadt (one district, ~100×100 tiles)
+## 6. World — Nutsterdam (one district, ~100×100 tiles)
 
-Berlin pastiche: the Spree canal along the north, a Fernsehturm analogue
-("**Nusssehturm**") as the map's visual anchor, a U-Bahn entrance, cobblestone
-Kiez streets, club basements, a Döner stand.
+A canal runs along the north, a TV-tower analogue ("**Nusssehturm**") is the
+map's visual anchor, plus a U-Bahn entrance, cobblestone streets, club
+basements, a Döner stand.
 
 ### Enterable interiors (8)
 
@@ -127,7 +127,6 @@ At the Numo POS terminal in Café Mint, pressing the action button says exactly:
 - *"Two implementations, then merge. Not before."*
 - *"People lose seeds in the trash. Check anyway?"* (hidden-token hint)
 - *"Kimi was seen near the old red line."* (routing hint)
-- *"Nussstadt: twinned with Berlin."* (gag)
 - Remaining signs to be written in P1 (full text list lives in `client/src/data/signs.ts`).
 
 ## 7. Core mechanics & controls

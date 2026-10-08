@@ -19,11 +19,11 @@ Phased build plan. Scope: ~30-minute game, one city district, 7 named NPCs,
 
 - [x] Grid movement, collisions, camera follow, door warps with fades
 - [x] Dialogue engine (typewriter, choices) + sign interaction
-- [x] Nussstadt overworld + 8 interiors (grey-box with doors in the right places)
+- [x] Nutsterdam overworld + 8 interiors (grey-box with doors in the right places)
 - [x] ~30 signs written (`data/signs.ts`), Numo POS terminal verbatim line
 - [x] Menu shell: DRAFT / TOKENS / SIGNS / SAVE
 
-**Exit:** a 5-minute walk around Nussstadt with readable signs, no quests yet.
+**Exit:** a 5-minute walk around Nutsterdam with readable signs, no quests yet.
 
 ## P2 — Quests & NPCs (mock wallet)
 

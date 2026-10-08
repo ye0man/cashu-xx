@@ -113,7 +113,7 @@ export class TitleScene extends Phaser.Scene {
               tileY: save.tileY,
               facing: save.facing,
             }
-          : { mapId: 'nussstadt' },
+          : { mapId: 'nutsterdam' },
       );
     } catch {
       window.alert('Unknown Trainer ID. Check the code on your claim screen.');

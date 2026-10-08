@@ -2,10 +2,10 @@ import type { DialogueScript } from '../systems/dialogue';
 
 export const SIGNS: Record<string, DialogueScript> = {
   'sign-welcome': {
-    lines: ['WELCOME TO NUSSSTADT — twinned with Berlin. Mind the trams and the placeholders.'],
+    lines: ['WELCOME TO NUTSTERDAM — mind the trams and the placeholders.'],
   },
   'sign-tower': {
-    lines: ['The Nusssehturm. Berlin’s tower is taller. This one is nuttier.'],
+    lines: ['The Nusssehturm. Not the tallest tower, but the nuttiest.'],
   },
   'sign-placeholder': {
     lines: ['In this city everyone starts as XX. That’s not an insult. It’s a draft.'],
@@ -35,7 +35,7 @@ export const SIGNS: Record<string, DialogueScript> = {
     lines: ['Kimi was seen near the old red line.'],
   },
   'sign-canal': {
-    lines: ['The Spree doesn’t take ecash yet. The bridge does.'],
+    lines: ['The canal doesn’t take ecash yet. The bridge does.'],
   },
   'sign-u-bahn': {
     lines: ['U-BAHN: red line CLOSED. (No, you can’t go in. ...Yet.)'],

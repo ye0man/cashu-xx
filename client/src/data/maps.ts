@@ -106,8 +106,8 @@ const OVERWORLD_SIGNS: SignSpot[] = [
 ];
 
 const OVERWORLD: MapDef = {
-  id: 'nussstadt',
-  name: 'NUSSSTADT',
+  id: 'nutsterdam',
+  name: 'NUTSTERDAM',
   cols: 64,
   rows: 48,
   outdoor: true,
@@ -189,7 +189,7 @@ const LAB: MapDef = {
     { x: 4, y: 4, w: 4, h: 2, furniture: 'bench' },
     { x: 10, y: 2, w: 3, h: 2, furniture: 'shelf' },
   ],
-  doors: [{ x: 7, y: 10, targetMap: 'nussstadt', targetX: 10, targetY: 22, facing: 'down' }],
+  doors: [{ x: 7, y: 10, targetMap: 'nutsterdam', targetX: 10, targetY: 22, facing: 'down' }],
   signs: [
     { x: 3, y: 0, signId: 'sign-chalkboard' },
     { x: 11, y: 3, signId: 'sign-lab-shelf' },
@@ -209,7 +209,7 @@ const CAFE: MapDef = {
   spawn: { x: 7, y: 9 },
   water: [],
   walls: [...borderWalls(14, 11, 1, 'wall'), { x: 2, y: 3, w: 10, h: 2, furniture: 'counter' }],
-  doors: [{ x: 7, y: 10, targetMap: 'nussstadt', targetX: 22, targetY: 22, facing: 'down' }],
+  doors: [{ x: 7, y: 10, targetMap: 'nutsterdam', targetX: 22, targetY: 22, facing: 'down' }],
   signs: [
     { x: 9, y: 4, signId: 'sign-pos' },
     { x: 2, y: 0, signId: 'sign-cafe-menu' },
@@ -230,7 +230,7 @@ const MINIBITS_HQ: MapDef = {
   spawn: { x: 8, y: 10 },
   water: [],
   walls: [...borderWalls(16, 12, 1, 'wall'), { x: 4, y: 3, w: 8, h: 2, furniture: 'desk' }],
-  doors: [{ x: 8, y: 11, targetMap: 'nussstadt', targetX: 49, targetY: 23, facing: 'down' }],
+  doors: [{ x: 8, y: 11, targetMap: 'nutsterdam', targetX: 49, targetY: 23, facing: 'down' }],
   signs: [
     { x: 7, y: 4, signId: 'sign-hq-reception' },
     { x: 2, y: 0, signId: 'sign-hq-motd' },
@@ -251,7 +251,7 @@ const RUSTY_WORKSHOP: MapDef = {
   spawn: { x: 6, y: 8 },
   water: [],
   walls: [...borderWalls(13, 10, 1, 'wall'), { x: 2, y: 2, w: 3, h: 2, furniture: 'crates' }],
-  doors: [{ x: 6, y: 9, targetMap: 'nussstadt', targetX: 9, targetY: 4, facing: 'down' }],
+  doors: [{ x: 6, y: 9, targetMap: 'nutsterdam', targetX: 9, targetY: 4, facing: 'down' }],
   signs: [
     { x: 3, y: 3, signId: 'sign-workshop-crates' },
     { x: 8, y: 0, signId: 'sign-workshop-swap' },
@@ -271,7 +271,7 @@ const PALM_HOUSE: MapDef = {
   spawn: { x: 6, y: 8 },
   water: [],
   walls: [...borderWalls(13, 10, 1, 'wall'), { x: 8, y: 2, w: 3, h: 2, furniture: 'planter' }],
-  doors: [{ x: 6, y: 9, targetMap: 'nussstadt', targetX: 22, targetY: 4, facing: 'down' }],
+  doors: [{ x: 6, y: 9, targetMap: 'nutsterdam', targetX: 22, targetY: 4, facing: 'down' }],
   signs: [
     { x: 9, y: 3, signId: 'sign-palm-coconuts' },
     { x: 3, y: 0, signId: 'sign-palm-types' },
@@ -295,7 +295,7 @@ const LIBRARY: MapDef = {
     { x: 2, y: 3, w: 4, h: 2, furniture: 'shelf' },
     { x: 8, y: 3, w: 4, h: 2, furniture: 'shelf' },
   ],
-  doors: [{ x: 7, y: 10, targetMap: 'nussstadt', targetX: 48, targetY: 38, facing: 'down' }],
+  doors: [{ x: 7, y: 10, targetMap: 'nutsterdam', targetX: 48, targetY: 38, facing: 'down' }],
   signs: [
     { x: 3, y: 4, signId: 'sign-library-shh' },
     { x: 9, y: 4, signId: 'sign-library-nutshell' },
@@ -315,7 +315,7 @@ const CLUB: MapDef = {
   spawn: { x: 6, y: 8 },
   water: [],
   walls: [...borderWalls(13, 10, 1, 'wall'), { x: 8, y: 2, w: 3, h: 2, furniture: 'booth' }],
-  doors: [{ x: 6, y: 9, targetMap: 'nussstadt', targetX: 16, targetY: 42, facing: 'down' }],
+  doors: [{ x: 6, y: 9, targetMap: 'nutsterdam', targetX: 16, targetY: 42, facing: 'down' }],
   signs: [
     { x: 9, y: 3, signId: 'sign-club-tonight' },
     { x: 3, y: 0, signId: 'sign-club-cover' },
@@ -335,7 +335,7 @@ const HIDEOUT: MapDef = {
   spawn: { x: 6, y: 7 },
   water: [],
   walls: [...borderWalls(12, 9, 1, 'wall'), { x: 2, y: 2, w: 3, h: 2, furniture: 'crates' }],
-  doors: [{ x: 6, y: 8, targetMap: 'nussstadt', targetX: 31, targetY: 43, facing: 'down' }],
+  doors: [{ x: 6, y: 8, targetMap: 'nutsterdam', targetX: 31, targetY: 43, facing: 'down' }],
   signs: [
     { x: 3, y: 3, signId: 'sign-hideout-wanted' },
     { x: 8, y: 0, signId: 'sign-hideout-htlc' },
@@ -345,7 +345,7 @@ const HIDEOUT: MapDef = {
 };
 
 export const MAPS: Record<string, MapDef> = {
-  nussstadt: OVERWORLD,
+  nutsterdam: OVERWORLD,
   lab: LAB,
   cafe: CAFE,
   'minibits-hq': MINIBITS_HQ,

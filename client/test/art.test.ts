@@ -47,7 +47,7 @@ describe('hand-authored art', () => {
   });
 
   it('every building door sits on its building bottom row', () => {
-    const map = MAPS.nussstadt;
+    const map = MAPS.nutsterdam;
     for (const door of map.doors) {
       const host = map.walls.find(
         (r) => door.x >= r.x && door.x < r.x + r.w && door.y >= r.y && door.y < r.y + r.h && r.kind !== 'trees',

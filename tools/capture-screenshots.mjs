@@ -42,7 +42,7 @@ if (mode === 'all' || mode === 'world-dialog') {
     localStorage.setItem(
       'cashu-xx.save.v1',
       JSON.stringify({
-        mapId: 'nussstadt',
+        mapId: 'nutsterdam',
         tileX: 21,
         tileY: 25,
         facing: 'left',
@@ -78,7 +78,7 @@ async function spawnAt(save) {
 if (mode === 'all' || mode === 'extras') {
   await spawnAt({ mapId: 'lab', tileX: 7, tileY: 7, facing: 'up' });
   await page.screenshot({ path: `${outDir}/5-lab.png` });
-  await spawnAt({ mapId: 'nussstadt', tileX: 31, tileY: 12, facing: 'up' });
+  await spawnAt({ mapId: 'nutsterdam', tileX: 31, tileY: 12, facing: 'up' });
   await tap(page, 'KeyN');
   await sleep(800);
   await page.screenshot({ path: `${outDir}/6-night.png` });

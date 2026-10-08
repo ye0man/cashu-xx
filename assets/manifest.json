@@ -1069,7 +1069,7 @@
       "generation": {
         "provider": "fal",
         "model": "fal-ai/flux/dev",
-        "prompt": "Game Boy Color era pixel art key art illustration: a cute anthropomorphic hazelnut hero with black pixel sunglasses and a small purple hoodie walking through an 8-bit Berlin-inspired city street, cobblestone plaza, canal with a small bridge, a tall pixel TV tower in the distance, warm evening light, thick black outlines, flat colors, limited palette of cream, tan, purple, deep purple, brick red, moss green and water blue, crisp pixel edges, retro JRPG title screen composition, no text, no watermark",
+        "prompt": "Game Boy Color era pixel art key art illustration: a cute anthropomorphic hazelnut hero with black pixel sunglasses and a small purple hoodie walking through an 8-bit canal city street, cobblestone plaza, canal with a small bridge, a tall pixel TV tower in the distance, warm evening light, thick black outlines, flat colors, limited palette of cream, tan, purple, deep purple, brick red, moss green and water blue, crisp pixel edges, retro JRPG title screen composition, no text, no watermark",
         "seed": 7,
         "params": {
           "image_size": "landscape_16_9"
