@@ -1,0 +1,53 @@
+# Deploy the Cashu-XX API on a small VPS behind Caddy (automatic TLS).
+#
+# No registry to manage: a stock Node image clones the public repo at start and
+# runs the Fastify API. Caddy terminates TLS for the VPS hostname and
+# reverse-proxies requests to the API. The client is served separately by
+# jakedat.com, which rewrites /api/* to this host.
+#
+# The wallet seed and ledger live in the `cashu-data` volume — back it up, and
+# do not lose it (it is the pooled real-sats wallet).
+services:
+  cashu-api:
+    image: node:22-bookworm
+    restart: unless-stopped
+    working_dir: /src
+    environment:
+      WALLET: minibits
+      HOST: 0.0.0.0
+      PORT: "8787"
+      CLIENT_ORIGIN: https://jakedat.com
+      MINT_URL: https://mint.minibits.cash/Bitcoin
+      DATA_DIR: /data
+      DB_PATH: /data/cashu-xx.db
+    volumes:
+      - cashu-data:/data
+    command:
+      - bash
+      - -lc
+      - |
+        set -euo pipefail
+        apt-get update && apt-get install -y --no-install-recommends git ca-certificates python3 make g++
+        rm -rf /src
+        git clone --depth 1 https://github.com/ye0man/cashu-xx.git /src
+        cd /src
+        npm install --no-audit --no-fund
+        exec npm run start -w server
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - cashu-api
+    ports:
+      - "80:80"
+      - "443:443"
+    command: caddy reverse-proxy --from https://srv1339099.hstgr.cloud --to cashu-api:8787
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  cashu-data:
+  caddy-data:
+  caddy-config:

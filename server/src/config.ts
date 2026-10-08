@@ -6,6 +6,7 @@ import { DEFAULT_MINT_URL } from '@cashu-xx/shared';
 export type WalletName = 'mock' | 'minibits';
 
 export interface ServerConfig {
+  host: string;
   port: number;
   wallet: WalletName;
   clientOrigin: string;
@@ -36,6 +37,7 @@ export function loadConfig(argv: string[] = process.argv.slice(2)): ServerConfig
   }
 
   return {
+    host: process.env.HOST ?? '127.0.0.1',
     port: Number(values.port ?? process.env.PORT ?? 8787),
     wallet,
     clientOrigin: process.env.CLIENT_ORIGIN ?? 'http://localhost:5173',
